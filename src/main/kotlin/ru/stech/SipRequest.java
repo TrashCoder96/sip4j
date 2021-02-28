@@ -1,4 +1,4 @@
-package pack;
+package ru.stech;
 
 class SipRequest {
 

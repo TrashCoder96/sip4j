@@ -1,4 +1,4 @@
-package pack.obj
+package ru.stech.obj
 
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -89,7 +89,7 @@ class RequestBuilder(
                 "nc=00000001," +
                 "qop=auth," +
                 "algorithm=md5," +
-                "opaque=\"6bb435532db6e150\"\n"
+                "opaque=\"6bb435532db6e150\""
         return this
     }
 

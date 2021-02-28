@@ -1,4 +1,4 @@
-package pack.obj
+package ru.stech.obj.ro
 
 data class SipRequest(
     val method: String,
