@@ -15,14 +15,13 @@ import ru.stech.obj.ro.register.parseToSipRegisterResponse
 import ru.stech.util.findIp
 import java.lang.IllegalArgumentException
 import java.math.BigInteger
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 import java.security.MessageDigest
 import java.util.UUID
 
-class Client(
+open class Client (
     private val user: String,
     private val password: String,
     private val clientPort: Int,
@@ -34,6 +33,7 @@ class Client(
     private var currentBranchId: String? = null
     private val clientIp = findIp()
     private var processingClientTransactions = mutableMapOf<SipMethod, SipTransaction>()
+    private var isRegistered = false
 
     init {
         channel.socket().bind(InetSocketAddress(clientPort))
@@ -51,13 +51,13 @@ class Client(
             clientIp = clientIp,
             clientPort = clientPort,
             branchIdPart = currentBranchId!!,
-            maxForwards = 5,
+            maxForwards = 70,
             contactHeader = SipContactHeader(user, clientIp, clientPort),
             toHeader = SipToHeader(user, serverIp),
             fromHeader = SipFromHeader(user, serverIp),
             callId = registerTransaction.callId,
             cSeqOrder = registerTransaction.nextNumber(),
-            expires = 20,
+            expires = 60,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -81,7 +81,7 @@ class Client(
                         clientIp = clientIp,
                         clientPort = clientPort,
                         branch = optionsRequest.branch,
-                        tag = optionsRequest.tag,
+                        fromTag = optionsRequest.tag,
                         callId = optionsRequest.callId,
                         cseqNumber = optionsRequest.cseqNumber
                     )
@@ -125,6 +125,7 @@ class Client(
 
     private fun processOk(response: SipRegisterResponse) {
         print("Registration is ok!!!")
+        isRegistered = true
     }
 
     private fun processUnauthorized(response: SipRegisterResponse) {
@@ -138,13 +139,13 @@ class Client(
             clientIp = clientIp,
             clientPort = clientPort,
             branchIdPart = currentBranchId!!,
-            maxForwards = 5,
+            maxForwards = 70,
             contactHeader = SipContactHeader(user, clientIp, clientPort),
             toHeader = SipToHeader(user, serverIp),
             fromHeader = SipFromHeader(user, serverIp),
             callId = currentCallId!!,
             cSeqOrder = processingClientTransactions[SipMethod.REGISTER]!!.nextNumber(),
-            expires = 20,
+            expires = 60,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE),

@@ -1,6 +1,7 @@
 package ru.stech.obj.ro.options
 
 import ru.stech.obj.ro.SipStatus
+import java.util.*
 
 class SipOptionsResponse(
     val user: String,
@@ -10,7 +11,8 @@ class SipOptionsResponse(
     val clientIp: String,
     val clientPort: Int,
     val branch: String,
-    val tag: String,
+    val fromTag: String,
+    val toTag: String = UUID.randomUUID().toString(),
     val callId: String,
     val cseqNumber: Int
 ) {
@@ -18,8 +20,8 @@ class SipOptionsResponse(
         return "SIP/2.0 ${status.status} ${status.name}\n" +
                 "Via: SIP/2.0/UDP ${serverIp}:${serverPort};branch=${branch}\n" +
                 "Contact: <sip:${clientIp}:${clientPort}>\n" +
-                "To: <sip:${user}@${clientIp}>\n" +
-                "From: <sip:${user}@${serverIp}>;tag=${tag}\n" +
+                "To: <sip:${user}@${clientIp}>;tag=${toTag}\n" +
+                "From: <sip:${user}@${serverIp}>;tag=${fromTag}\n" +
                 "Call-ID: ${callId}\n" +
                 "CSeq: $cseqNumber OPTIONS\n" +
                 "Accept: application/sdp, application/sdp\n" +
