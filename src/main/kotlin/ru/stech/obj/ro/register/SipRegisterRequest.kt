@@ -7,11 +7,7 @@ import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.buildString
 
 data class SipRegisterRequest(
-    val method: SipMethod,
-    val serverIp: String,
-    val clientIp: String,
-    val clientPort: Int,
-    val branchIdPart: String,
+    val branch: String,
     val maxForwards: Int,
     val contactHeader: SipContactHeader,
     val toHeader: SipToHeader,
@@ -24,14 +20,14 @@ data class SipRegisterRequest(
 )
 
 fun SipRegisterRequest.buildString(): String {
-    return "${method.name} sip:${serverIp};transport=UDP SIP/2.0\n" +
-            "Via: SIP/2.0/UDP ${clientIp}:${clientPort};branch=z9hG4bK_${branchIdPart}\n" +
+    return "REGISTER sip:${toHeader.host};transport=UDP SIP/2.0\n" +
+            "Via: SIP/2.0/UDP ${contactHeader.localIp}:${contactHeader.localPort};branch=${branch}\n" +
             "Max-Forwards: ${maxForwards}\n" +
             "${contactHeader.buildString()}\n" +
             "${toHeader.buildString()}\n" +
             "${fromHeader.buildString()}\n" +
             "Call-ID: ${callId}\n" +
-            "CSeq: $cSeqOrder ${method.name}\n" +
+            "CSeq: $cSeqOrder REGISTER\n" +
             "Expires: ${expires}\n" +
             "Allow: ${allow.joinToString(", ")}\n" +
             "User-Agent: Sip4j Library\n" +

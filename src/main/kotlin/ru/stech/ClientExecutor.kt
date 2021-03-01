@@ -15,16 +15,10 @@ class ClientExecutor {
     private val clients: MutableMap<String, Client> = ConcurrentHashMap()
 
     fun startClient() {
-        val client = Client(userId, password, clientPort, serverHost, serverPort)
+        val client = Client(userId, password, clientPort, serverHost, serverPort, dispatcher)
         clients[userId] = client
         CoroutineScope(dispatcher).launch {
             client.startListening()
-        }
-        client.initRegister()
-    }
-
-    fun start() {
-        while (true) {
         }
     }
 

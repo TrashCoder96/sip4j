@@ -9,9 +9,24 @@ const val CALL_ID = "Call-ID:"
 
 const val WWW_AUTH = "WWW-Authenticate:"
 val realmRegexp = Regex("realm=\"(.*?)\"")
+fun findRealm(line: String): String {
+    return realmRegexp.find(line)!!.groupValues[1]
+}
+
 val nonceRegexp = Regex("nonce=\"(.*?)\"")
+fun findNonce(line: String): String {
+    return nonceRegexp.find(line)!!.groupValues[1]
+}
+
 val opaqueRegexp = Regex("opaque=\"(.*?)\"")
-val authRegexp = Regex("qop=\"(.*?)\"")
+fun findOpaque(line: String): String {
+    return opaqueRegexp.find(line)!!.groupValues[1]
+}
+
+val qopRegexp = Regex("qop=\"(.*?)\"")
+fun findQop(line: String): String {
+    return qopRegexp.find(line)!!.groupValues[1]
+}
 
 data class SipRegisterResponse(
     val status: SipStatus?,
@@ -32,16 +47,11 @@ fun String.parseToSipRegisterResponse(): SipRegisterResponse {
             callId = line.substring(9, line.length - 1)
         }
         if (line.startsWith(WWW_AUTH)) {
-            val realmMatchResult = realmRegexp.find(line)
-            val nonceMatchResult = nonceRegexp.find(line)
-            val opaqueMatchResult = opaqueRegexp.find(line)
-            val authMathResult = authRegexp.find(line)
-
             wwwAuthenticateHeader = WWWAuthenticateHeader(
-                realm = realmMatchResult!!.groupValues[1],
-                nonce = nonceMatchResult!!.groupValues[1],
-                opaque = opaqueMatchResult!!.groupValues[1],
-                qop = authMathResult!!.groupValues[1]
+                realm = findRealm(line),
+                nonce = findNonce(line),
+                opaque = findOpaque(line),
+                qop = findQop(line)
             )
         }
     }
