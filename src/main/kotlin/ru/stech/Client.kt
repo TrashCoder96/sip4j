@@ -50,6 +50,10 @@ class Client (
         }
     }
 
+    suspend fun unregister() {
+
+    }
+
     suspend fun call() {
         val inviteOperation = InviteOperation(remoteUser, channel, sipClientProperties)
         processingClientOperations[inviteOperation.callId] = inviteOperation
