@@ -1,95 +1,90 @@
 package ru.stech
 
-import ru.stech.obj.ro.*
-import ru.stech.obj.ro.register.*
+import ru.stech.obj.ro.SipContactHeader
+import ru.stech.obj.ro.SipFromHeader
+import ru.stech.obj.ro.SipMethod
+import ru.stech.obj.ro.SipStatus
+import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.invite.SipInviteRequest
+import ru.stech.obj.ro.invite.parseToInviteResponse
+import ru.stech.obj.ro.register.SipAuthorizationHeader
+import ru.stech.obj.ro.register.WWWAuthenticateHeader
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.UUID
+import java.util.*
 
-class RegisterTransaction(
+class InviteOperation(
+    val remoteUser: String,
     val callId: String,
     val datagramChannel: DatagramChannel,
     val sipClientProperties: SipClientProperties
-) : Transaction {
+): Operation {
     val branch = "z9hG4bK${UUID.randomUUID()}"
     private var cseqNumber = 0
     private val nc = "00000001"
+    private var currentWWWWAuthenticateHeader: WWWAuthenticateHeader? = null
 
     override fun start() {
-        val request = SipRegisterRequest(
+        val request = SipInviteRequest(
             branch = branch,
             maxForwards = 70,
-            contactHeader = SipContactHeader(
-                sipClientProperties.user,
-                sipClientProperties.clientIp,
-                sipClientProperties.clientPort),
-            toHeader = SipToHeader(
-                sipClientProperties.user,
-                sipClientProperties.serverIp),
-            fromHeader = SipFromHeader(
-                sipClientProperties.user,
-                sipClientProperties.serverIp),
+            contactHeader = SipContactHeader(sipClientProperties.user, sipClientProperties.clientIp, sipClientProperties.clientPort),
+            toHeader = SipToHeader(remoteUser, sipClientProperties.serverIp),
+            fromHeader = SipFromHeader(sipClientProperties.user, sipClientProperties.serverIp),
             callId = callId,
-            cSeqOrder = ++cseqNumber,
-            expires = 20,
-            allow = arrayListOf(
-                SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
-                SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
+            cseqNumber = ++cseqNumber
         )
         send(request)
     }
 
-    override fun processReceivedBody(branch: String, body: String) {
-        val response = body.parseToSipRegisterResponse()
+    override fun processReceivedBody(body: String) {
+        val response = body.parseToInviteResponse()
         val cnonce = UUID.randomUUID().toString()
         if (response.status == SipStatus.Unauthorized) {
-            val newRegisterRequest = SipRegisterRequest(
+            val newInviteRequest = SipInviteRequest(
                 branch = branch,
-                maxForwards = 70,
                 contactHeader = SipContactHeader(
                     user = sipClientProperties.user,
                     localIp = sipClientProperties.clientIp,
                     localPort = sipClientProperties.clientPort
                 ),
                 toHeader = SipToHeader(
-                    sipClientProperties.user,
-                    sipClientProperties.serverIp
+                    user = remoteUser,
+                    host = sipClientProperties.serverIp
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp
                 ),
+                maxForwards = 70,
                 callId = callId,
-                cSeqOrder = ++cseqNumber,
+                cseqNumber = ++cseqNumber,
                 authorizationHeader = SipAuthorizationHeader(
                     user = sipClientProperties.user,
-                    realm = response.wwwAuthenticateHeader!!.realm,
+                    realm = response.wwwAuthenticateHeader.realm,
                     nonce = response.wwwAuthenticateHeader.nonce,
                     serverIp = sipClientProperties.serverIp,
-                    response = getResponseHash(nc, cnonce, response.wwwAuthenticateHeader, sipClientProperties),
+                    response = getResponseHash(SipMethod.INVITE, nc, cnonce, response.wwwAuthenticateHeader, sipClientProperties),
                     cnonce = cnonce,
                     nc = nc,
                     qop = response.wwwAuthenticateHeader.qop,
                     algorithm = response.wwwAuthenticateHeader.algorithm,
                     opaque = response.wwwAuthenticateHeader.opaque
-                ),
-                expires = 20,
-                allow = arrayListOf(
-                    SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
-                    SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
+                )
             )
-            send(newRegisterRequest)
+            send(newInviteRequest)
         } else {
-            print("register transaction")
+            print("invite transaction")
         }
     }
 
-    fun send(request: SipRegisterRequest) {
+    fun send(request: SipInviteRequest) {
         val buf = ByteBuffer.allocate(2048)
         buf.clear()
         buf.put(request.buildString().toByteArray())
         buf.flip()
         datagramChannel.send(buf, InetSocketAddress(sipClientProperties.serverIp, sipClientProperties.serverPort))
     }
+
 }

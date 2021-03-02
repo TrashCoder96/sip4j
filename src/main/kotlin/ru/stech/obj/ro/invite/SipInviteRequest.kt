@@ -4,6 +4,7 @@ import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.register.SipAuthorizationHeader
+import ru.stech.obj.ro.register.buildString
 
 class SipInviteRequest(
     val branch: String,
@@ -27,6 +28,7 @@ class SipInviteRequest(
                 "Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\n" +
                 "Content-Type: application/sdp\n" +
                 "User-Agent: Sip4j Library\n" +
+                (authorizationHeader?.buildString() ?: "") +
                 "Allow-Events: presence, kpml, talk\n" +
                 "Content-Length: 0\n" +
                 "\n" +

@@ -7,11 +7,11 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 
-class OptionsServerTransaction(
+class OptionsServerOperation(
     val callId: String,
     val datagramChannel: DatagramChannel,
     val sipClientProperties: SipClientProperties
-): ServerTransaction {
+): ServerOperation {
 
     override fun askRequest(branch: String, request: String) {
         val optionsRequest = request.parseToOptionsRequest()
