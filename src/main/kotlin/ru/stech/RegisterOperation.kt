@@ -2,21 +2,29 @@ package ru.stech
 
 import ru.stech.obj.ro.*
 import ru.stech.obj.ro.register.*
+import java.lang.IllegalArgumentException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 class RegisterOperation(
-    val callId: String,
     val datagramChannel: DatagramChannel,
     val sipClientProperties: SipClientProperties
 ) : Operation {
-    val branch = "z9hG4bK${UUID.randomUUID()}"
+    val callId: String = UUID.randomUUID().toString()
+    var completed = AtomicBoolean(false)
     private var cseqNumber = 0
     private val nc = "00000001"
+    private val fromTag = UUID.randomUUID().toString()
+
+    override fun isCompleted(): Boolean {
+        return completed.get()
+    }
 
     override fun start() {
+        val branch = "z9hG4bK${UUID.randomUUID()}"
         val request = SipRegisterRequest(
             branch = branch,
             maxForwards = 70,
@@ -29,7 +37,9 @@ class RegisterOperation(
                 sipClientProperties.serverIp),
             fromHeader = SipFromHeader(
                 sipClientProperties.user,
-                sipClientProperties.serverIp),
+                sipClientProperties.serverIp,
+                tag = fromTag
+            ),
             callId = callId,
             cSeqOrder = ++cseqNumber,
             expires = 20,
@@ -40,10 +50,13 @@ class RegisterOperation(
         send(request)
     }
 
-    override fun processReceivedBody(branch: String, body: String) {
+    override fun processReceivedBody(body: String) {
+        //it's always response body
         val response = body.parseToSipRegisterResponse()
-        val cnonce = UUID.randomUUID().toString()
         if (response.status == SipStatus.Unauthorized) {
+            val cnonce = UUID.randomUUID().toString()
+            val branch = "z9hG4bK${UUID.randomUUID()}"
+            val fromTag = extractTagFromReceivedBody(body)
             val newRegisterRequest = SipRegisterRequest(
                 branch = branch,
                 maxForwards = 70,
@@ -54,12 +67,12 @@ class RegisterOperation(
                 ),
                 toHeader = SipToHeader(
                     sipClientProperties.user,
-                    sipClientProperties.serverIp
+                    sipClientProperties.serverIp,
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    tag = "f2483d6b"
+                    tag = fromTag
                 ),
                 callId = callId,
                 cSeqOrder = ++cseqNumber,
@@ -69,8 +82,8 @@ class RegisterOperation(
                     nonce = response.wwwAuthenticateHeader.nonce,
                     serverIp = sipClientProperties.serverIp,
                     response = getResponseHash(SipMethod.REGISTER,
-                        nc,
                         cnonce,
+                        nc,
                         response.wwwAuthenticateHeader,
                         sipClientProperties),
                     cnonce = cnonce,
@@ -85,8 +98,10 @@ class RegisterOperation(
                     SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
             )
             send(newRegisterRequest)
+        } else if (response.status == SipStatus.OK) {
+            completed.set(true)
         } else {
-            print("register transaction")
+            throw IllegalArgumentException()
         }
     }
 

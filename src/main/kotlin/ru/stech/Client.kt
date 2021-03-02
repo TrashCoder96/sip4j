@@ -4,13 +4,13 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import ru.stech.obj.ro.SipMethod
-import ru.stech.obj.ro.options.branchRegexp
 import ru.stech.obj.ro.options.callIdRegexp
 import ru.stech.util.findIp
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.*
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class Client (
     private val user: String,
@@ -21,7 +21,6 @@ class Client (
     private val dispatcher: CoroutineDispatcher
 ) {
     private val channel = DatagramChannel.open()
-    private var currentCallId: String? = null
     private val clientIp = findIp()
     private val processingClientOperations = mutableMapOf<String, Operation>()
     private val processingServerOperations = mutableMapOf<String, ServerOperation>()
@@ -41,17 +40,28 @@ class Client (
         channel.socket().bind(InetSocketAddress(clientPort))
     }
 
-    fun register() {
-        currentCallId = UUID.randomUUID().toString()
-        val registerOperation = RegisterOperation(currentCallId!!, channel, sipClientProperties)
-        processingClientOperations[registerOperation.branch] = registerOperation
+    suspend fun startRegister() {
+        val registerOperation = RegisterOperation(channel, sipClientProperties)
+        processingClientOperations[registerOperation.callId] = registerOperation
         registerOperation.start()
+        return suspendCoroutine {
+            while (!registerOperation.isCompleted()) {}
+            it.resume(Unit)
+        }
     }
 
-    fun call() {
-        val inviteTransaction = InviteOperation(remoteUser, currentCallId!!, channel, sipClientProperties)
-        processingClientOperations[inviteTransaction.branch] = inviteTransaction
-        inviteTransaction.start()
+    suspend fun unregister() {
+
+    }
+
+    suspend fun call() {
+        val inviteOperation = InviteOperation(remoteUser, channel, sipClientProperties)
+        processingClientOperations[inviteOperation.callId] = inviteOperation
+        inviteOperation.start()
+        return suspendCoroutine {
+            while (!inviteOperation.isCompleted()) {}
+            it.resume(Unit)
+        }
     }
 
     fun startListening() {
@@ -64,7 +74,11 @@ class Client (
                     val callId = extractCallIdFromReceivedBody(body)
                     if (processingClientOperations[callId] != null) {
                         //this is response from proxy server, continue operation
-                        processingClientOperations[callId]?.processReceivedBody(body)
+                        processingClientOperations[callId]!!.processReceivedBody(body)
+                        //remove operation if completed
+                        if (processingClientOperations[callId]!!.isCompleted()) {
+                            processingClientOperations.remove(callId)
+                        }
                     } else {
                         //this is request from server, create response
                         processRequest(callId, body)
@@ -78,16 +92,11 @@ class Client (
     private fun processRequest(callId: String, body: String) {
         if (body.startsWith(SipMethod.OPTIONS.name)) {
             val optionsTransaction = OptionsServerOperation(callId, channel, sipClientProperties)
-            processingServerOperations[branch] = optionsTransaction
-            optionsTransaction.askRequest(branch, body)
+            processingServerOperations[callId] = optionsTransaction
+            optionsTransaction.askRequest(callId, body)
         } else {
             throw IllegalArgumentException()
         }
-    }
-
-    private fun extractBranchFromReceivedBody(body: String): String {
-        val result = branchRegexp.find(body)
-        return result!!.groupValues[1]
     }
 
     private fun extractCallIdFromReceivedBody(body: String): String {

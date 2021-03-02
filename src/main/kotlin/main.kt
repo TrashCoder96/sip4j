@@ -1,3 +1,5 @@
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.runBlocking
 import ru.stech.Client
@@ -13,7 +15,11 @@ fun main(args: Array<String>) {
         dispatcher = dispatcher
     )
     ce.startListening()
-    ce.register()
+    GlobalScope.launch {
+        ce.startRegister()
+        ce.call()
+        print("call started")
+    }
     runBlocking {
         while (true) {}
     }

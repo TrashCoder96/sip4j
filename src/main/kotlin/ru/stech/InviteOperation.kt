@@ -8,24 +8,27 @@ import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.invite.SipInviteRequest
 import ru.stech.obj.ro.invite.parseToInviteResponse
 import ru.stech.obj.ro.register.SipAuthorizationHeader
-import ru.stech.obj.ro.register.WWWAuthenticateHeader
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 
 class InviteOperation(
     val remoteUser: String,
-    val callId: String,
     val datagramChannel: DatagramChannel,
     val sipClientProperties: SipClientProperties
 ): Operation {
-    val branch = "z9hG4bK${UUID.randomUUID()}"
+    val callId: String = UUID.randomUUID().toString()
+    var completed = AtomicBoolean(false)
     private var cseqNumber = 0
     private val nc = "00000001"
-    private var currentWWWWAuthenticateHeader: WWWAuthenticateHeader? = null
+    override fun isCompleted(): Boolean {
+        return completed.get()
+    }
 
     override fun start() {
+        val branch = "z9hG4bK${UUID.randomUUID()}"
         val request = SipInviteRequest(
             branch = branch,
             maxForwards = 70,
@@ -40,8 +43,10 @@ class InviteOperation(
 
     override fun processReceivedBody(body: String) {
         val response = body.parseToInviteResponse()
-        val cnonce = UUID.randomUUID().toString()
         if (response.status == SipStatus.Unauthorized) {
+            val cnonce = UUID.randomUUID().toString()
+            val branch = "z9hG4bK${UUID.randomUUID()}"
+            val fromTag = extractTagFromReceivedBody(body)
             val newInviteRequest = SipInviteRequest(
                 branch = branch,
                 contactHeader = SipContactHeader(
@@ -55,7 +60,8 @@ class InviteOperation(
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
-                    host = sipClientProperties.serverIp
+                    host = sipClientProperties.serverIp,
+                    tag = fromTag
                 ),
                 maxForwards = 70,
                 callId = callId,
@@ -65,7 +71,7 @@ class InviteOperation(
                     realm = response.wwwAuthenticateHeader.realm,
                     nonce = response.wwwAuthenticateHeader.nonce,
                     serverIp = sipClientProperties.serverIp,
-                    response = getResponseHash(SipMethod.INVITE, nc, cnonce, response.wwwAuthenticateHeader, sipClientProperties),
+                    response = getResponseHash(SipMethod.INVITE, cnonce, nc, response.wwwAuthenticateHeader, sipClientProperties),
                     cnonce = cnonce,
                     nc = nc,
                     qop = response.wwwAuthenticateHeader.qop,
@@ -74,6 +80,8 @@ class InviteOperation(
                 )
             )
             send(newInviteRequest)
+        } else if (response.status == SipStatus.OK) {
+            completed.set(true)
         } else {
             print("invite transaction")
         }
