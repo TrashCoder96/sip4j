@@ -3,6 +3,7 @@ package ru.stech.obj.ro.invite
 import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.buildString
 import ru.stech.obj.ro.register.SipAuthorizationHeader
 import ru.stech.obj.ro.register.buildString
 
@@ -20,9 +21,9 @@ class SipInviteRequest(
         return "INVITE sip:${toHeader.user}@${toHeader.user};transport=UDP SIP/2.0\n" +
                 "Via: SIP/2.0/UDP ${contactHeader.localIp}:${contactHeader.localPort};branch=${branch};rport\n" +
                 "Max-Forwards: ${maxForwards}\n" +
-                "Contact: <sip:${contactHeader.user}@${contactHeader.localIp}:${contactHeader.localPort};transport=UDP>\n" +
-                "To: <sip:${toHeader.user}@${toHeader.host}>\n" +
-                "From: <sip:${fromHeader.user}@${fromHeader.host};transport=UDP>;tag=cad4fa61\n" +
+                "${contactHeader.buildString()}\n" +
+                "${toHeader.buildString()}\n" +
+                "${fromHeader.buildString()}\n" +
                 "Call-ID: ${callId}\n" +
                 "CSeq: $cseqNumber INVITE\n" +
                 "Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\n" +
