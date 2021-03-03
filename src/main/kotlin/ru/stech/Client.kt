@@ -224,6 +224,9 @@ class Client (
         )
         send(inviteRequest.buildString())
         var sipInviteResponse = inviteResponseChannel.receive()
+        while (sipInviteResponse.status == SipStatus.Trying || sipInviteResponse.status == SipStatus.Ringing) {
+            sipInviteResponse = inviteResponseChannel.receive()
+        }
         ack(inviteBranch, callId)
         if (sipInviteResponse.status == SipStatus.Unauthorized) {
             val cnonce = UUID.randomUUID().toString()
@@ -249,23 +252,26 @@ class Client (
                 cseqNumber = 2,
                 authorizationHeader = SipAuthorizationHeader(
                     user = sipClientProperties.user,
-                    realm = sipInviteResponse.wwwAuthenticateHeader.realm,
-                    nonce = sipInviteResponse.wwwAuthenticateHeader.nonce,
+                    realm = sipInviteResponse.wwwAuthenticateHeader!!.realm,
+                    nonce = sipInviteResponse.wwwAuthenticateHeader!!.nonce,
                     serverIp = sipClientProperties.serverIp,
                     response = getResponseHash(SipMethod.INVITE,
                         cnonce,
                         nc,
-                        sipInviteResponse.wwwAuthenticateHeader,
+                        sipInviteResponse.wwwAuthenticateHeader!!,
                         sipClientProperties),
                     cnonce = cnonce,
                     nc = nc,
-                    qop = sipInviteResponse.wwwAuthenticateHeader.qop,
-                    algorithm = sipInviteResponse.wwwAuthenticateHeader.algorithm,
-                    opaque = sipInviteResponse.wwwAuthenticateHeader.opaque
+                    qop = sipInviteResponse.wwwAuthenticateHeader!!.qop,
+                    algorithm = sipInviteResponse.wwwAuthenticateHeader!!.algorithm,
+                    opaque = sipInviteResponse.wwwAuthenticateHeader!!.opaque
                 ),
             )
             send(newInviteRequest.buildString())
             sipInviteResponse = inviteResponseChannel.receive()
+            while (sipInviteResponse.status == SipStatus.Trying || sipInviteResponse.status == SipStatus.Ringing) {
+                sipInviteResponse = inviteResponseChannel.receive()
+            }
             ack(inviteBranch, callId)
         }
         if (sipInviteResponse.status == SipStatus.OK) {
@@ -280,8 +286,14 @@ class Client (
             clientIp = sipClientProperties.clientIp,
             clientPort = sipClientProperties.clientPort,
             branch = branch,
-            toHeader = SipToHeader(sipClientProperties.user, sipClientProperties.serverIp),
-            fromHeader = SipFromHeader(sipClientProperties.user, sipClientProperties.serverIp),
+            toHeader = SipToHeader(
+                user = sipClientProperties.user,
+                host = sipClientProperties.serverIp,
+                tag = branch),
+            fromHeader = SipFromHeader(
+                user = sipClientProperties.user,
+                host = sipClientProperties.serverIp,
+                tag = UUID.randomUUID().toString()),
             maxForwards = 70,
             callId = callId,
             cseqNumber = 1

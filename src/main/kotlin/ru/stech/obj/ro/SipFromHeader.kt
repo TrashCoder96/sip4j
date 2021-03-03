@@ -7,7 +7,7 @@ data class SipFromHeader(
 )
 
 fun SipFromHeader.buildString(): String {
-    val result = "From: <sip:${user}@${host};transport=UDP>"
+    val result = "From: <sip:${user}@${host}>"
     val tagString = if (tag.isNotBlank()) ";tag=${tag}" else ""
     return result + tagString
 }

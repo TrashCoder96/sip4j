@@ -68,7 +68,7 @@ class InviteOperation(
                 cseqNumber = ++cseqNumber,
                 authorizationHeader = SipAuthorizationHeader(
                     user = sipClientProperties.user,
-                    realm = response.wwwAuthenticateHeader.realm,
+                    realm = response.wwwAuthenticateHeader!!.realm,
                     nonce = response.wwwAuthenticateHeader.nonce,
                     serverIp = sipClientProperties.serverIp,
                     response = getResponseHash(SipMethod.INVITE, cnonce, nc, response.wwwAuthenticateHeader, sipClientProperties),

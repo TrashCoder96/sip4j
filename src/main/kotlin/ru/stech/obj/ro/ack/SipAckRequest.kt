@@ -17,12 +17,14 @@ class SipAckRequest(
 
     fun buildString(): String {
         return "ACK sip:${toHeader.user}@${toHeader.host};transport=UDP SIP/2.0\n" +
-                "Via: SIP/2.0/UDP ${clientIp}:${clientPort};branch=${branch}\n" +
+                "Via: SIP/2.0/UDP ${clientIp}:${clientPort};branch=${branch};rport\n" +
                 "Max-Forwards: ${maxForwards}\n" +
                 "${toHeader.buildString()}\n" +
                 "${fromHeader.buildString()}\n" +
                 "Call-ID: ${callId}\n" +
                 "CSeq: $cseqNumber ACK\n" +
-                "Content-Length: 0"
+                "Content-Length: 0\n" +
+                "\n"
     }
+
 }
