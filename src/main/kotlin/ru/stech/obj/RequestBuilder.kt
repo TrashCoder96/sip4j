@@ -2,7 +2,7 @@ package ru.stech.obj
 
 import java.net.Inet4Address
 import java.net.NetworkInterface
-import java.util.UUID
+import java.util.*
 
 class RequestBuilder(
     private val serverHost: String

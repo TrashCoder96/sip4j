@@ -1,9 +1,7 @@
 package ru.stech.util
 
-import ru.stech.SipClientProperties
 import ru.stech.obj.ro.SipMethod
 import ru.stech.obj.ro.options.branchRegexp
-import ru.stech.obj.ro.register.WWWAuthenticateHeader
 import java.math.BigInteger
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -24,17 +22,21 @@ fun md5(input:String): String {
 }
 
 fun extractBranchFromReceivedBody(body: String): String {
-    val result = branchRegexp.find(body)
-    return result!!.groupValues[1]
+    val result = branchRegexp.find(body)!!.value
+    return result.substring(7).trim()
 }
 
-fun getResponseHash(method: SipMethod,
-                    cnonce: String,
+fun getResponseHash(user: String,
+                    realm: String,
+                    password: String,
+                    method: SipMethod,
+                    serverIp: String,
+                    nonce: String,
                     nc: String,
-                    wwwAuthenticateHeader: WWWAuthenticateHeader,
-                    sipClientProperties: SipClientProperties
+                    cnonce: String,
+                    qop: String
 ): String {
-    val ha1 = md5("${sipClientProperties.user}:${wwwAuthenticateHeader.realm}:${sipClientProperties.password}")
-    val ha2 = md5("${method.name}:sip:${sipClientProperties.serverIp};transport=UDP")
-    return md5("${ha1}:${wwwAuthenticateHeader.nonce}:${nc}:${cnonce}:${wwwAuthenticateHeader.qop}:${ha2}")
+    val ha1 = md5("${user}:${realm}:${password}")
+    val ha2 = md5("${method.name}:sip:${serverIp};transport=UDP")
+    return md5("${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}")
 }

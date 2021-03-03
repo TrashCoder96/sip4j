@@ -7,4 +7,5 @@ data class SipClientProperties(
     val serverPort: Int,
     val clientIp: String,
     val clientPort: Int,
+    val rtpPort: Int
 )

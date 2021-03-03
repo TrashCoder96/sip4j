@@ -7,6 +7,7 @@ import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.buildString
 
 data class SipRegisterRequest(
+    val unregister: Boolean = false,
     val branch: String,
     val maxForwards: Int,
     val contactHeader: SipContactHeader,
@@ -21,7 +22,8 @@ data class SipRegisterRequest(
 
 fun SipRegisterRequest.buildString(): String {
     return "REGISTER sip:${toHeader.host};transport=UDP SIP/2.0\n" +
-            "Via: SIP/2.0/UDP ${contactHeader.localIp}:${contactHeader.localPort};branch=${branch}\n" +
+            "Via: SIP/2.0/UDP ${contactHeader.localIp}:${contactHeader.localPort};branch=${branch}" +
+            (if (unregister) ";expires=0" else "") + "\n" +
             "Max-Forwards: ${maxForwards}\n" +
             "${contactHeader.buildString()}\n" +
             "${toHeader.buildString()}\n" +

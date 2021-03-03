@@ -15,7 +15,8 @@ class SipInviteRequest(
     val maxForwards: Int,
     val callId: String,
     val cseqNumber: Int,
-    val authorizationHeader: SipAuthorizationHeader? = null) {
+    val authorizationHeader: SipAuthorizationHeader? = null,
+    val rtpPort: Int) {
 
     fun buildString(): String {
         return "INVITE sip:${toHeader.user}@${toHeader.user};transport=UDP SIP/2.0\n" +
@@ -38,7 +39,7 @@ class SipInviteRequest(
                 "s=Z\n" +
                 "c=IN IP4 ${contactHeader.localIp}\n" +
                 "t=0 0\n" +
-                "m=audio 8000 RTP/AVP 106 9 98 101 0 8 3\n" +
+                "m=audio $rtpPort RTP/AVP 106 9 98 101 0 8 3\n" +
                 "a=rtpmap:106 opus/48000/2\n" +
                 "a=fmtp:106 sprop-maxcapturerate=16000; minptime=20; useinbandfec=1\n" +
                 "a=rtpmap:98 telephone-event/48000\n" +

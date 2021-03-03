@@ -1,12 +1,18 @@
 package ru.stech
 
-import ru.stech.obj.ro.*
-import ru.stech.obj.ro.register.*
-import java.lang.IllegalArgumentException
+import ru.stech.obj.ro.SipContactHeader
+import ru.stech.obj.ro.SipFromHeader
+import ru.stech.obj.ro.SipMethod
+import ru.stech.obj.ro.SipStatus
+import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.register.SipAuthorizationHeader
+import ru.stech.obj.ro.register.SipRegisterRequest
+import ru.stech.obj.ro.register.buildString
+import ru.stech.obj.ro.register.parseToSipRegisterResponse
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 class RegisterOperation(

@@ -2,9 +2,8 @@ package ru.stech.obj.ro.options
 
 import ru.stech.obj.ro.SipMethod
 
-val branchRegexp = Regex("branch=(.*)")
+val branchRegexp = Regex("branch=z9hG4bK(.*?)[^;\\n]+")
 val tagRegexp = Regex("tag=(.*)")
-val callIdRegexp = Regex("Call-ID: (.*)")
 
 data class SipOptionsRequest(
     val method: SipMethod,

@@ -17,7 +17,8 @@ fun main(args: Array<String>) {
     ce.startListening()
     GlobalScope.launch {
         ce.register()
-        ce.makeCall()
+        ce.startCall()
+        //ce.unregister()
     }
     runBlocking {
         while (true) {}
