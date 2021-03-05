@@ -8,6 +8,7 @@ import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.findCSeqHeader
+import ru.stech.obj.ro.findCallIdHeader
 import ru.stech.obj.ro.findFromHeaderLine
 import ru.stech.obj.ro.findToHeaderLine
 import ru.stech.obj.ro.findViaHeaderLine
@@ -39,15 +40,15 @@ fun String.parseToSipRegisterResponse(): SipRegisterResponse {
     val fromHeaderLine = this.findFromHeaderLine()
     val toHeaderLine = this.findToHeaderLine()
     val cSeqHeaderLine = this.findCSeqHeader()
-    val callIdHeaderLine = this.findCSeqHeader()
+    val callIdHeaderLine = this.findCallIdHeader()
     val wwwAuthenticateHeaderLine = this.findWWWAuthenticateHeader()
     return SipRegisterResponse(
         status = SipStatus.valueOf(sip20Result!!.groupValues[2]),
-        viaHeader = viaHeaderLine!!.parseToViaHeader(),
-        fromHeader = fromHeaderLine!!.parseToFromHeader(),
-        toHeader = toHeaderLine!!.parseToToHeader(),
-        cSeqHeader = cSeqHeaderLine!!.parseToCSeqHeader(),
-        callIdHeader = callIdHeaderLine!!.parseToCallIdHeader(),
+        viaHeader = viaHeaderLine.parseToViaHeader(),
+        fromHeader = fromHeaderLine.parseToFromHeader(),
+        toHeader = toHeaderLine.parseToToHeader(),
+        cSeqHeader = cSeqHeaderLine.parseToCSeqHeader(),
+        callIdHeader = callIdHeaderLine.parseToCallIdHeader(),
         wwwAuthenticateHeader = if (wwwAuthenticateHeaderLine != null) this.parseToWWWAuthenticateHeader() else null
     )
 }

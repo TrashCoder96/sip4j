@@ -19,8 +19,9 @@ class SipViaHeader(
     }
 }
 
-fun String.findViaHeaderLine(): String? {
-    return viaHeaderRegexp.find(this)?.value
+fun String.findViaHeaderLine(): String {
+    val result = viaHeaderRegexp.find(this) ?: throw SipParseException()
+    return result.value
 }
 
 fun String.parseToViaHeader(): SipViaHeader {
@@ -28,7 +29,7 @@ fun String.parseToViaHeader(): SipViaHeader {
     val hostParams = result!!.groupValues[4]
     val hostParamsMap = mutableMapOf<String, String>()
     val hostParamPartsDividedByColon = hostParams.split(";")
-    for (i in 1 .. hostParamPartsDividedByColon.size) {
+    for (i in 1 until hostParamPartsDividedByColon.size) {
         val keyAndValue = hostParamPartsDividedByColon[i].split("=")
         val key = keyAndValue[0]
         val value = if (keyAndValue.isNotEmpty()) keyAndValue[1] else ""

@@ -1,8 +1,9 @@
+import com.sun.security.ntlm.Client
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.runBlocking
-import ru.stech.Client
+//import ru.stech.Client
 
 fun main(args: Array<String>) {
     val dispatcher = newFixedThreadPoolContext(3, "co")

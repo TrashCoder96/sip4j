@@ -6,30 +6,32 @@ import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipMethod
 import ru.stech.obj.ro.SipRequest
+import ru.stech.obj.ro.SipRequestURIHeader
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
 
 class SipRegisterRequest(
+    requestURIHeader: SipRequestURIHeader,
     viaHeader: SipViaHeader,
     toHeader: SipToHeader,
     fromHeader: SipFromHeader,
-    contactHeader: SipContactHeader,
+    val contactHeader: SipContactHeader,
     cSeqHeader: CSeqHeader,
     callIdHeader: CallIdHeader,
     maxForwards: Int,
     val allow: Collection<SipMethod>,
     val expires: Int,
     val authorizationHeader: SipAuthorizationHeader? = null,
-): SipRequest(viaHeader, toHeader, fromHeader, contactHeader, cSeqHeader, callIdHeader, maxForwards) {
+): SipRequest(requestURIHeader, viaHeader, toHeader, fromHeader, cSeqHeader, callIdHeader, maxForwards) {
     override fun buildString(): String {
-        return "REGISTER sip:${toHeader.host};transport=UDP SIP/2.0\n" +
+        return "${requestURIHeader.buildString()}\n" +
                 "${viaHeader.buildString()}\n" +
-                "Max-Forwards: ${maxForwards}\n" +
                 "${contactHeader.buildString()}\n" +
                 "${toHeader.buildString()}\n" +
                 "${fromHeader.buildString()}\n" +
                 "${callIdHeader.buildString()}\n" +
                 "${cSeqHeader.buildString()}\n" +
+                "Max-Forwards: ${maxForwards}\n" +
                 "Expires: ${expires}\n" +
                 "Allow: ${allow.joinToString(", ")}\n" +
                 "User-Agent: Sip4j Library\n" +

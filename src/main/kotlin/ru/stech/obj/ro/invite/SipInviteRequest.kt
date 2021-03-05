@@ -5,6 +5,7 @@ import ru.stech.obj.ro.CallIdHeader
 import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipRequest
+import ru.stech.obj.ro.SipRequestURIHeader
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.register.SipAuthorizationHeader
@@ -13,23 +14,23 @@ class SipInviteRequest(
     viaHeader: SipViaHeader,
     toHeader: SipToHeader,
     fromHeader: SipFromHeader,
-    contactHeader: SipContactHeader,
+    val contactHeader: SipContactHeader,
     cSeqHeader: CSeqHeader,
     callIdHeader: CallIdHeader,
     maxForwards: Int,
     val rtpPort: Int,
-    val authorizationHeader: SipAuthorizationHeader?
-): SipRequest(viaHeader, toHeader, fromHeader, contactHeader, cSeqHeader, callIdHeader, maxForwards) {
+    val authorizationHeader: SipAuthorizationHeader?, requestURIHeader: SipRequestURIHeader
+): SipRequest(requestURIHeader, viaHeader, toHeader, fromHeader, cSeqHeader, callIdHeader, maxForwards) {
 
     override fun buildString(): String {
-        return "INVITE sip:${toHeader.user}@${toHeader.user};transport=UDP SIP/2.0\n" +
+        return "${requestURIHeader.buildString()}\n" +
                 "${viaHeader.buildString()}\n" +
-                "Max-Forwards: ${maxForwards}\n" +
                 "${contactHeader.buildString()}\n" +
                 "${toHeader.buildString()}\n" +
                 "${fromHeader.buildString()}\n" +
                 "${callIdHeader.buildString()}\n" +
                 "${cSeqHeader.buildString()}\n" +
+                "Max-Forwards: ${maxForwards}\n" +
                 "Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\n" +
                 "Content-Type: application/sdp\n" +
                 "User-Agent: Sip4j Library\n" +

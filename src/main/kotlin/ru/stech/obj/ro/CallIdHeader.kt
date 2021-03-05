@@ -10,8 +10,9 @@ class CallIdHeader(
     }
 }
 
-fun String.findCallIdHeader(): String? {
-    return callIdHeaderRegex.find(this)?.value
+fun String.findCallIdHeader(): String {
+    val result = callIdHeaderRegex.find(this) ?: throw SipParseException()
+    return result.value
 }
 
 fun String.parseToCallIdHeader(): CallIdHeader {

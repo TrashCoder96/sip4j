@@ -11,8 +11,9 @@ class CSeqHeader(
     }
 }
 
-fun String.findCSeqHeader(): String? {
-    return cSeqHeaderRegex.find(this)?.value
+fun String.findCSeqHeader(): String {
+    val result = cSeqHeaderRegex.find(this) ?: throw SipParseException()
+    return result.value
 }
 
 fun String.parseToCSeqHeader(): CSeqHeader {

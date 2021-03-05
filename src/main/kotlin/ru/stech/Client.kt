@@ -123,6 +123,9 @@ class Client (
                     byeRequestChannel.onReceive {
                         val byeResponse = SipByeResponse(
                             status = SipStatus.OK,
+                            viaHeader = SipViaHeader(
+
+                            ),
                             serverIp = sipClientProperties.serverIp,
                             serverPort = sipClientProperties.serverPort,
                             branch = it.branch,

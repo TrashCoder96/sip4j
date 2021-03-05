@@ -23,8 +23,9 @@ class SipFromHeader(
     }
 }
 
-fun String.findFromHeaderLine(): String? {
-    return fromHeaderRegex.find(this)?.value
+fun String.findFromHeaderLine(): String {
+    val result = fromHeaderRegex.find(this) ?: throw SipParseException()
+    return result.value
 }
 
 fun String.parseToFromHeader(): SipFromHeader {
@@ -33,7 +34,7 @@ fun String.parseToFromHeader(): SipFromHeader {
     val hostAndParamsArray = hostWithParams.split(";")
     val host = hostAndParamsArray[0]
     val hostParamsMap = mutableMapOf<String, String>()
-    for (i in 1 .. hostAndParamsArray.size) {
+    for (i in 1 until hostAndParamsArray.size) {
         val keyAndValue = hostAndParamsArray[i].split("=")
         hostParamsMap[keyAndValue[0]] = keyAndValue[1]
     }

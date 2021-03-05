@@ -1,6 +1,7 @@
 package ru.stech.util
 
 import ru.stech.obj.ro.SipMethod
+import ru.stech.obj.ro.SipParseException
 import java.math.BigInteger
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -50,8 +51,9 @@ fun extractToHeaderFromReceivedBody(body: String): String {
     return toHeaderRegex.find(body)!!.value
 }
 
-fun findMaxForward(body: String): Int {
-    return Integer.parseInt(maxForwardsRegex.find(body)!!.value)
+fun findMaxForwards(body: String): Int {
+    val result = maxForwardsRegex.find(body) ?: throw SipParseException()
+    return Integer.parseInt(result.groupValues[1])
 }
 
 fun extractBranchFromReceivedBody(body: String): String {

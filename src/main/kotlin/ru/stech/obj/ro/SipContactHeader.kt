@@ -23,8 +23,9 @@ class SipContactHeader(
     }
 }
 
-fun String.findContactHeaderLine(): String? {
-    return contactHeader.find(this)?.value
+fun String.findContactHeaderLine(): String {
+    val result = contactHeader.find(this) ?: throw SipParseException()
+    return result.value
 }
 
 fun String.parseToContactHeader(): SipContactHeader {
