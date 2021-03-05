@@ -4,12 +4,19 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
+import ru.stech.obj.ro.CSeqHeader
+import ru.stech.obj.ro.CallIdHeader
 import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipMethod
 import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.ack.SipAckRequest
+import ru.stech.obj.ro.bye.SipByeRequest
+import ru.stech.obj.ro.bye.SipByeResponse
+import ru.stech.obj.ro.bye.parseToByeRequest
 import ru.stech.obj.ro.invite.SipInviteRequest
 import ru.stech.obj.ro.invite.SipInviteResponse
 import ru.stech.obj.ro.invite.parseToInviteResponse
@@ -19,15 +26,15 @@ import ru.stech.obj.ro.options.parseToOptionsRequest
 import ru.stech.obj.ro.register.SipAuthorizationHeader
 import ru.stech.obj.ro.register.SipRegisterRequest
 import ru.stech.obj.ro.register.SipRegisterResponse
-import ru.stech.obj.ro.register.buildString
 import ru.stech.obj.ro.register.parseToSipRegisterResponse
 import ru.stech.util.extractBranchFromReceivedBody
 import ru.stech.util.findIp
+import ru.stech.util.findMethod
 import ru.stech.util.getResponseHash
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.*
+import java.util.UUID
 
 class Client (
     private val user: String,
@@ -41,6 +48,7 @@ class Client (
     private val rtpChannel = DatagramChannel.open()
     private val clientIp = findIp()
 
+    private val callId = UUID.randomUUID().toString()
     private var registerCallId = UUID.randomUUID().toString()
     private var registerNonce: String? = null
     private var registerRealm: String? = null
@@ -56,6 +64,8 @@ class Client (
     private val inviteResponseChannel = Channel<SipInviteResponse>(0)
 
     private val optionsRequestChannel = Channel<SipOptionsRequest>(0)
+
+    private val byeRequestChannel = Channel<SipByeRequest>(0)
 
     private val sipClientProperties: SipClientProperties = SipClientProperties(
         user = user,
@@ -74,20 +84,64 @@ class Client (
         //loop for options requests from server
         CoroutineScope(dispatcher).launch {
             while (true) {
-                val optionsRequest = optionsRequestChannel.receive()
-                val optionsResponse = SipOptionsResponse(
-                    user = sipClientProperties.user,
-                    status = SipStatus.OK,
-                    serverIp = sipClientProperties.serverIp,
-                    serverPort = sipClientProperties.serverPort,
-                    clientIp = sipClientProperties.clientIp,
-                    clientPort = sipClientProperties.clientPort,
-                    branch = optionsRequest.branch,
-                    fromTag = "12345",
-                    callId = optionsRequest.callId,
-                    cseqNumber = optionsRequest.cseqNumber
-                )
-                send(optionsResponse.buildString())
+                select<Unit> {
+                    optionsRequestChannel.onReceive {
+                        val optionsResponse = SipOptionsResponse(
+                            status = SipStatus.OK,
+                            viaHeader = SipViaHeader(
+                                host = sipClientProperties.clientIp,
+                                port = sipClientProperties.clientPort,
+                                hostParams = mapOf(
+                                    "rport" to "${sipClientProperties.serverPort}",
+                                    "branch" to it.viaHeader.hostParams["branch"]!!
+                                )
+                            ),
+                            fromHeader = SipFromHeader(
+                                user = it.fromHeader.user,
+                                host = it.fromHeader.host,
+                                fromParamsMap = mapOf(
+                                    "tag" to it.fromHeader.fromParamsMap["tag"]!!
+                                )
+                            ),
+                            toHeader = SipToHeader(
+                                user = sipClientProperties.user,
+                                host = sipClientProperties.clientIp,
+                                hostParamsMap = mapOf(
+                                    "rinstance" to it.toHeader.hostParamsMap["rinstance"]!!
+                                )
+                            ),
+                            cSeqHeader = CSeqHeader(
+                                cSeqNumber = it.cSeqHeader.cSeqNumber,
+                                method = SipMethod.OPTIONS
+                            ),
+                            callIdHeader = CallIdHeader(
+                                callId = it.callIdHeader.callId
+                            )
+                        )
+                        send(optionsResponse.buildString())
+                    }
+                    byeRequestChannel.onReceive {
+                        val byeResponse = SipByeResponse(
+                            status = SipStatus.OK,
+                            serverIp = sipClientProperties.serverIp,
+                            serverPort = sipClientProperties.serverPort,
+                            branch = it.branch,
+                            callId = it.callId,
+                            contactHeader = SipContactHeader(
+                                user = sipClientProperties.user,
+                                localIp = sipClientProperties.clientIp,
+                                localPort = sipClientProperties.clientPort
+                            ),
+                            toHeader = SipToHeader(
+                                user = sipClientProperties.user,
+                                host = sipClientProperties.serverIp
+                            ),
+                            fromHeader = it.fromHeader,
+                            cseqNumber = it.cseqNumber
+                        )
+                        send(byeResponse.buildString())
+                    }
+                }
             }
         }
         rtpChannel.configureBlocking(false)
@@ -132,8 +186,14 @@ class Client (
             registerBranch -> registerResponseChannel.send(body.parseToSipRegisterResponse())
             inviteBranch -> inviteResponseChannel.send(body.parseToInviteResponse())
             else -> {
-                val optionsRequest = body.parseToOptionsRequest()
-                optionsRequestChannel.send(optionsRequest)
+                val method = findMethod(body)
+                when (SipMethod.valueOf(method)) {
+                    SipMethod.OPTIONS -> optionsRequestChannel.send(body.parseToOptionsRequest())
+                    SipMethod.BYE -> byeRequestChannel.send(body.parseToByeRequest())
+                    else -> {
+
+                    }
+                }
             }
         }
     }
@@ -141,7 +201,11 @@ class Client (
     suspend fun register() {
         val fromTag = UUID.randomUUID().toString()
         val request = SipRegisterRequest(
-            branch = registerBranch,
+            viaHeader = SipViaHeader(
+                host = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort,
+                branch = registerBranch
+            ),
             maxForwards = 70,
             contactHeader = SipContactHeader(
                 sipClientProperties.user,
@@ -155,8 +219,13 @@ class Client (
                 sipClientProperties.serverIp,
                 tag = fromTag
             ),
-            callId = registerCallId,
-            cSeqOrder = 1,
+            callIdHeader = CallIdHeader(
+                callId = registerCallId
+            ),
+            cSeqHeader = CSeqHeader(
+                cSeqNumber = 1,
+                method = SipMethod.REGISTER
+            ),
             expires = 20,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
@@ -173,14 +242,16 @@ class Client (
             registerQop = sipRegisterResponse.wwwAuthenticateHeader!!.qop
             registerAlgorithm = sipRegisterResponse.wwwAuthenticateHeader!!.algorithm
             registerOpaque = sipRegisterResponse.wwwAuthenticateHeader!!.opaque
-
             val newRegisterRequest = SipRegisterRequest(
-                branch = registerBranch,
-                maxForwards = 70,
+                viaHeader = SipViaHeader(
+                    host = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort,
+                    branch = registerBranch
+                ),
                 contactHeader = SipContactHeader(
                     user = sipClientProperties.user,
-                    localIp = sipClientProperties.clientIp,
-                    localPort = sipClientProperties.clientPort
+                    ip = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort
                 ),
                 toHeader = SipToHeader(
                     sipClientProperties.user,
@@ -191,8 +262,14 @@ class Client (
                     host = sipClientProperties.serverIp,
                     tag = fromTag
                 ),
-                callId = registerCallId,
-                cSeqOrder = 2,
+                maxForwards = 70,
+                callIdHeader = CallIdHeader(
+                    callId = registerCallId
+                ),
+                cSeqHeader = CSeqHeader(
+                    cSeqNumber = 2,
+                    method = SipMethod.REGISTER
+                ),
                 authorizationHeader = SipAuthorizationHeader(
                     user = sipClientProperties.user,
                     realm = registerRealm!!,
@@ -234,13 +311,15 @@ class Client (
         val cnonce = UUID.randomUUID().toString()
         val fromTag = UUID.randomUUID().toString()
         val unregisterRequest = SipRegisterRequest(
-            unregister = true,
-            branch = registerBranch,
-            maxForwards = 70,
+            viaHeader = SipViaHeader(
+                host = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort,
+                branch = registerBranch
+            ),
             contactHeader = SipContactHeader(
                 user = sipClientProperties.user,
-                localIp = sipClientProperties.clientIp,
-                localPort = sipClientProperties.clientPort
+                ip = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort
             ),
             toHeader = SipToHeader(
                 sipClientProperties.user,
@@ -251,8 +330,14 @@ class Client (
                 host = sipClientProperties.serverIp,
                 tag = fromTag
             ),
-            callId = registerCallId,
-            cSeqOrder = 3,
+            maxForwards = 70,
+            callIdHeader = CallIdHeader(
+                callId = registerCallId
+            ),
+            cSeqHeader = CSeqHeader(
+                cSeqNumber = 3,
+                method = SipMethod.REGISTER
+            ),
             authorizationHeader = SipAuthorizationHeader(
                 user = sipClientProperties.user,
                 realm = registerRealm!!,
@@ -283,13 +368,15 @@ class Client (
         if (sipRegisterResponse.status == SipStatus.Unauthorized) {
             registerBranch = UUID.randomUUID().toString()
             val newUnregisterRequest = SipRegisterRequest(
-                unregister = true,
-                branch = registerBranch,
-                maxForwards = 70,
+                viaHeader = SipViaHeader(
+                    host = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort,
+                    branch = registerBranch
+                ),
                 contactHeader = SipContactHeader(
                     user = sipClientProperties.user,
-                    localIp = sipClientProperties.clientIp,
-                    localPort = sipClientProperties.clientPort
+                    ip = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort
                 ),
                 toHeader = SipToHeader(
                     sipClientProperties.user,
@@ -300,8 +387,14 @@ class Client (
                     host = sipClientProperties.serverIp,
                     tag = fromTag
                 ),
-                callId = registerCallId,
-                cSeqOrder = 4,
+                maxForwards = 70,
+                callIdHeader = CallIdHeader(
+                    callId = registerCallId
+                ),
+                cSeqHeader = CSeqHeader(
+                    cSeqNumber = 4,
+                    method = SipMethod.REGISTER
+                ),
                 authorizationHeader = SipAuthorizationHeader(
                     user = sipClientProperties.user,
                     realm = registerRealm!!,
@@ -343,7 +436,6 @@ class Client (
 
     suspend fun startCall() {
         val nc = "00000001"
-        val callId = UUID.randomUUID().toString()
         val fromTag = UUID.randomUUID().toString()
         val inviteRequest = SipInviteRequest(
             branch = inviteBranch,
@@ -371,7 +463,7 @@ class Client (
         while (sipInviteResponse.status == SipStatus.Trying || sipInviteResponse.status == SipStatus.Ringing) {
             sipInviteResponse = inviteResponseChannel.receive()
         }
-        ack(inviteBranch, callId)
+        ack(inviteBranch)
         if (sipInviteResponse.status == SipStatus.Unauthorized) {
             val cnonce = UUID.randomUUID().toString()
             inviteBranch = "z9hG4bK${UUID.randomUUID()}"
@@ -421,7 +513,7 @@ class Client (
             while (sipInviteResponse.status == SipStatus.Trying || sipInviteResponse.status == SipStatus.Ringing) {
                 sipInviteResponse = inviteResponseChannel.receive()
             }
-            ack(inviteBranch, callId)
+            ack(inviteBranch)
         }
         if (sipInviteResponse.status == SipStatus.OK) {
             print("Invation is ok")
@@ -430,7 +522,7 @@ class Client (
         }
     }
 
-    private fun ack(branch: String, callId: String) {
+    private fun ack(branch: String) {
         val ackRequest = SipAckRequest(
             clientIp = sipClientProperties.clientIp,
             clientPort = sipClientProperties.clientPort,

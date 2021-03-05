@@ -1,16 +1,28 @@
 package ru.stech.obj.ro.invite
 
+import ru.stech.obj.ro.CSeqHeader
+import ru.stech.obj.ro.CallIdHeader
+import ru.stech.obj.ro.SipFromHeader
+import ru.stech.obj.ro.SipResponse
 import ru.stech.obj.ro.SipStatus
+import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.register.WWWAuthenticateHeader
-import ru.stech.obj.ro.register.findNonce
-import ru.stech.obj.ro.register.findOpaque
-import ru.stech.obj.ro.register.findQop
-import ru.stech.obj.ro.register.findRealm
 
-data class SipInviteResponse(
-    val status: SipStatus,
-    val wwwAuthenticateHeader: WWWAuthenticateHeader? = null
-)
+class SipInviteResponse(
+    val wwwAuthenticateHeader: WWWAuthenticateHeader? = null,
+    status: SipStatus,
+    viaHeader: SipViaHeader,
+    fromHeader: SipFromHeader,
+    toHeader: SipToHeader,
+    cSeqHeader: CSeqHeader,
+    callIdHeader: CallIdHeader,
+): SipResponse(status, viaHeader, fromHeader, toHeader, cSeqHeader, callIdHeader) {
+    override fun buildString(): String {
+        TODO("Not yet implemented")
+    }
+
+}
 
 fun String.parseToInviteResponse(): SipInviteResponse {
     val lines = this.lines()

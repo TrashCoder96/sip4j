@@ -1,7 +1,11 @@
 package ru.stech.obj.ro
 
-data class SipRequest(
-    val method: String,
-    val sipServerHost: String,
-
-)
+abstract class SipRequest(
+    val viaHeader: SipViaHeader,
+    val toHeader: SipToHeader,
+    val fromHeader: SipFromHeader,
+    val contactHeader: SipContactHeader,
+    val cSeqHeader: CSeqHeader,
+    val callIdHeader: CallIdHeader,
+    val maxForwards: Int
+): SipObject

@@ -1,30 +1,29 @@
 package ru.stech.obj.ro.options
 
+import ru.stech.obj.ro.CSeqHeader
+import ru.stech.obj.ro.CallIdHeader
+import ru.stech.obj.ro.SipFromHeader
+import ru.stech.obj.ro.SipResponse
 import ru.stech.obj.ro.SipStatus
-import java.util.*
+import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.SipViaHeader
 
 class SipOptionsResponse(
-    val user: String,
-    val status: SipStatus,
-    val serverIp: String,
-    val serverPort: Int,
-    val clientIp: String,
-    val clientPort: Int,
-    val branch: String,
-    val fromTag: String,
-    val toTag: String = UUID.randomUUID().toString(),
-    val callId: String,
-    val cseqNumber: Int
-) {
-    fun buildString(): String {
+    status: SipStatus,
+    viaHeader: SipViaHeader,
+    fromHeader: SipFromHeader,
+    toHeader: SipToHeader,
+    cSeqHeader: CSeqHeader,
+    callIdHeader: CallIdHeader,
+): SipResponse(status, viaHeader, fromHeader, toHeader, cSeqHeader, callIdHeader) {
+    override fun buildString(): String {
         return "SIP/2.0 ${status.status} ${status.name}\n" +
-                "Via: SIP/2.0/UDP ${serverIp}:${serverPort};branch=${branch}\n" +
-                "Contact: <sip:${clientIp}:${clientPort}>\n" +
-                "To: <sip:${user}@${clientIp}>;tag=${toTag}\n" +
-                "From: <sip:${user}@${serverIp}>;tag=${fromTag}\n" +
-                "Call-ID: ${callId}\n" +
-                "CSeq: $cseqNumber OPTIONS\n" +
-                "Accept: application/sdp, application/sdp\n" +
+                "${viaHeader.buildString()}\n" +
+                "${toHeader.buildString()}\n" +
+                "${fromHeader.buildString()}\n" +
+                "${callIdHeader.buildString()}\n" +
+                "${cSeqHeader.buildString()}\n" +
+                "Accept: application/sdp\n" +
                 "Accept-Language: en\n" +
                 "Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\n" +
                 "Supported: replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri\n" +

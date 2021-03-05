@@ -1,61 +1,53 @@
 package ru.stech.obj.ro.register
 
+import ru.stech.obj.ro.CSeqHeader
+import ru.stech.obj.ro.CallIdHeader
+import ru.stech.obj.ro.SipFromHeader
+import ru.stech.obj.ro.SipResponse
 import ru.stech.obj.ro.SipStatus
+import ru.stech.obj.ro.SipToHeader
+import ru.stech.obj.ro.SipViaHeader
+import ru.stech.obj.ro.findCSeqHeader
+import ru.stech.obj.ro.findFromHeaderLine
+import ru.stech.obj.ro.findToHeaderLine
+import ru.stech.obj.ro.findViaHeaderLine
+import ru.stech.obj.ro.parseToCSeqHeader
+import ru.stech.obj.ro.parseToCallIdHeader
+import ru.stech.obj.ro.parseToFromHeader
+import ru.stech.obj.ro.parseToToHeader
+import ru.stech.obj.ro.parseToViaHeader
 
-const val SIP20 = "SIP/2.0"
-val sip20Regexp = Regex("SIP/2.0 (.*?)")
+val sip20Regexp = Regex("SIP/2.0 ([0-9]+) (.*)")
 
-const val CALL_ID = "Call-ID:"
-
-const val WWW_AUTH = "WWW-Authenticate:"
-val realmRegexp = Regex("realm=\"(.*?)\"")
-fun findRealm(line: String): String {
-    return realmRegexp.find(line)!!.groupValues[1]
+class SipRegisterResponse(
+    status: SipStatus,
+    viaHeader: SipViaHeader,
+    fromHeader: SipFromHeader,
+    toHeader: SipToHeader,
+    cSeqHeader: CSeqHeader,
+    callIdHeader: CallIdHeader,
+    val wwwAuthenticateHeader: WWWAuthenticateHeader?,
+): SipResponse(status, viaHeader, fromHeader, toHeader, cSeqHeader, callIdHeader) {
+    override fun buildString(): String {
+        TODO("Not yet implemented")
+    }
 }
-
-val nonceRegexp = Regex("nonce=\"(.*?)\"")
-fun findNonce(line: String): String {
-    return nonceRegexp.find(line)!!.groupValues[1]
-}
-
-val opaqueRegexp = Regex("opaque=\"(.*?)\"")
-fun findOpaque(line: String): String {
-    return opaqueRegexp.find(line)!!.groupValues[1]
-}
-
-val qopRegexp = Regex("qop=\"(.*?)\"")
-fun findQop(line: String): String {
-    return qopRegexp.find(line)!!.groupValues[1]
-}
-
-data class SipRegisterResponse(
-    val status: SipStatus?,
-    val callId: String?,
-    val wwwAuthenticateHeader: WWWAuthenticateHeader?
-)
 
 fun String.parseToSipRegisterResponse(): SipRegisterResponse {
-    var status: SipStatus? = null
-    var callId: String? = null
-    var wwwAuthenticateHeader: WWWAuthenticateHeader? = null
-    for (line in this.lines()) {
-        if (line.startsWith(SIP20)) {
-            val parts = line.split(" ")
-            status = SipStatus.valueOf(parts[2])
-        }
-        if (line.startsWith(CALL_ID)) {
-            callId = line.substring(9, line.length - 1)
-        }
-        if (line.startsWith(WWW_AUTH)) {
-            wwwAuthenticateHeader = WWWAuthenticateHeader(
-                realm = findRealm(line),
-                nonce = findNonce(line),
-                opaque = findOpaque(line),
-                qop = findQop(line)
-            )
-        }
-    }
-    return SipRegisterResponse(status = status,
-        callId = callId,
-        wwwAuthenticateHeader = wwwAuthenticateHeader)
+    val sip20Result = sip20Regexp.find(this)
+    val viaHeaderLine = this.findViaHeaderLine()
+    val fromHeaderLine = this.findFromHeaderLine()
+    val toHeaderLine = this.findToHeaderLine()
+    val cSeqHeaderLine = this.findCSeqHeader()
+    val callIdHeaderLine = this.findCSeqHeader()
+    val wwwAuthenticateHeaderLine = this.findWWWAuthenticateHeader()
+    return SipRegisterResponse(
+        status = SipStatus.valueOf(sip20Result!!.groupValues[2]),
+        viaHeader = viaHeaderLine!!.parseToViaHeader(),
+        fromHeader = fromHeaderLine!!.parseToFromHeader(),
+        toHeader = toHeaderLine!!.parseToToHeader(),
+        cSeqHeader = cSeqHeaderLine!!.parseToCSeqHeader(),
+        callIdHeader = callIdHeaderLine!!.parseToCallIdHeader(),
+        wwwAuthenticateHeader = if (wwwAuthenticateHeaderLine != null) this.parseToWWWAuthenticateHeader() else null
+    )
 }

@@ -1,6 +1,8 @@
 package ru.stech.obj.ro.register
 
-data class SipAuthorizationHeader(
+import ru.stech.obj.ro.SipObject
+
+class SipAuthorizationHeader(
     val user: String,
     val realm: String,
     val nonce: String,
@@ -11,18 +13,17 @@ data class SipAuthorizationHeader(
     val qop: String,
     val algorithm: String,
     val opaque: String
-)
-
-fun SipAuthorizationHeader.buildString(): String {
-    return "Authorization: Digest username=\"${user}\"," +
-            "realm=\"${realm}\"," +
-            "nonce=\"${nonce}\"," +
-            "uri=\"sip:${serverIp};transport=UDP\"," +
-            "response=\"${response}\"," +
-            "cnonce=\"${cnonce}\"," +
-            "nc=${nc}," +
-            "qop=${qop}," +
-            "algorithm=${algorithm}," +
-            "opaque=\"${opaque}\"\n"
+): SipObject {
+    override fun buildString(): String {
+        return "Authorization: Digest username=\"${user}\"," +
+                "realm=\"${realm}\"," +
+                "nonce=\"${nonce}\"," +
+                "uri=\"sip:${serverIp};transport=UDP\"," +
+                "response=\"${response}\"," +
+                "cnonce=\"${cnonce}\"," +
+                "nc=${nc}," +
+                "qop=${qop}," +
+                "algorithm=${algorithm}," +
+                "opaque=\"${opaque}\"\n"
+    }
 }
-
