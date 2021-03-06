@@ -3,7 +3,7 @@ package ru.stech.obj.ro
 private val requestURIHeaderRegexp = Regex("(.*?) sip:(.*?) SIP/2.0")
 private val userRegexp = Regex("sip:(.*?)@")
 private val hostParamsRegexp = Regex(";(.*?) SIP/2.0")
-private val portRegexp = Regex(":([0-9]+)")
+private val portRegexp = Regex(":([0-9]+)[;\\s]")
 
 private val hostRegexp1 = Regex("@(.*?):")
 private val hostRegexp2 = Regex("sip:(.*?):")
@@ -29,17 +29,44 @@ fun String.findRequestURIHeader(): String? {
 }
 
 fun String.parseToSipRequestURIHeader(): SipRequestURIHeader {
-    val method = requestURIHeaderRegexp.find(this)!!.groupValues[1]
-    val user = userRegexp.find(this)?.value
-    val port = portRegexp.find(this)?.value
+    val method = parseMethod(this)
+    val user = parseUser(this)
+    val port = parsePort(this)
     val host = findHost(this)
     return SipRequestURIHeader(
-        method = SipMethod.valueOf(method),
+        method = method,
         user = user,
-        host = host!!,
-        port = Integer.parseInt(port),
+        host = host,
+        port = port,
         hostParamsMap = extractHostParamsMap(this)
     )
+}
+
+private fun parsePort(line: String): Int? {
+    val portMatchResult = portRegexp.find(line) ?: throw SipParseException()
+    return if (portMatchResult.groupValues.size > 1) {
+        Integer.parseInt(portMatchResult.groupValues[1])
+    } else {
+        null
+    }
+}
+
+private fun parseUser(line: String): String? {
+    val userMatchResult = userRegexp.find(line) ?: throw SipParseException()
+    return if (userMatchResult.groupValues.size > 1) {
+        userMatchResult.groupValues[1]
+    } else {
+        null
+    }
+}
+
+private fun parseMethod(line: String): SipMethod {
+    val methodMatchResult = requestURIHeaderRegexp.find(line) ?: throw SipParseException()
+    if (methodMatchResult.groupValues.size > 2) {
+        return SipMethod.valueOf(methodMatchResult.groupValues[1])
+    } else {
+        throw SipParseException()
+    }
 }
 
 private fun extractHostParamsMap(line: String): Map<String, String> {
@@ -57,19 +84,21 @@ private fun extractHostParamsMap(line: String): Map<String, String> {
     return hostParamsMap
 }
 
-private fun findHost(line: String): String? {
+private fun findHost(line: String): String {
     val result1 = hostRegexp1.find(line)
     var host: String? = null
     if (result1?.groupValues?.size ?: 0 > 1) {
         host = result1!!.groupValues[1]
     }
+    if (host != null) return host
     val result2 = hostRegexp2.find(line)
     if (result2?.groupValues?.size ?: 0 > 1) {
         host = result2!!.groupValues[1]
     }
+    if (host != null) return host
     val result3 = hostRegexp3.find(line)
     if (result3?.groupValues?.size ?: 0 > 1) {
         host = result3!!.groupValues[1]
     }
-    return host
+    return host ?: throw SipParseException()
 }

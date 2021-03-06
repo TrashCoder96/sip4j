@@ -21,7 +21,7 @@ fun String.parseResponseSipStatus(): SipStatus {
     val result = responseURIHeaderRegexp.find(this) ?: throw SipParseException()
     val size = result.groupValues.size
     if (size > 2) {
-
+        return SipStatus.valueOf(result.groupValues[2])
     }
     return SipStatus.OK
 }

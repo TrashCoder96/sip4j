@@ -3,7 +3,7 @@ package ru.stech.obj.ro
 import kotlin.streams.asStream
 
 private val toHeaderRegex = Regex("To: <sip:(.*?)@(.*?)>(.*?)[\n\r]")
-private val paramReg = Regex("([a-zA-Z0-9]+)=([a-zA-Z0-9]+)")
+private val paramReg = Regex("([a-zA-Z0-9]+)=(.*?)[;>\n\r]")
 
 class SipToHeader(
     val user: String,

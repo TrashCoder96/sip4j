@@ -1,6 +1,6 @@
 package ru.stech.obj.ro
 
-private val callIdHeaderRegex = Regex("Call-ID: (.*?)\r\n")
+private val callIdHeaderRegex = Regex("Call-ID: (.*?)[\r\n]")
 
 class CallIdHeader(
     val callId: String

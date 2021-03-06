@@ -3,7 +3,7 @@ package ru.stech.obj.ro
 import kotlin.streams.asStream
 
 private val contactHeader = Regex("Contact: <sip:(.*?)@(.*?):([0-9]+)(.*?)>(.*?)[\n\r]")
-private val paramReg = Regex("([a-zA-Z0-9]+)=([a-zA-Z0-9]+)")
+private val paramReg = Regex("([a-zA-Z0-9]+)=(.*?)[;>\n\r]")
 
 class SipContactHeader(
     val user: String,

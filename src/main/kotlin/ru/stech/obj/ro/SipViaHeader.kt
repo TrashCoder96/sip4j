@@ -26,13 +26,13 @@ fun String.findViaHeaderLine(): String {
 
 fun String.parseToViaHeader(): SipViaHeader {
     val result = viaHeaderRegexp.find(this)
-    val hostParams = result!!.groupValues[4]
+    val hostParams = result!!.groupValues[5]
     val hostParamsMap = mutableMapOf<String, String>()
     val hostParamPartsDividedByColon = hostParams.split(";")
     for (i in 1 until hostParamPartsDividedByColon.size) {
         val keyAndValue = hostParamPartsDividedByColon[i].split("=")
         val key = keyAndValue[0]
-        val value = if (keyAndValue.isNotEmpty()) keyAndValue[1] else ""
+        val value = if (keyAndValue.size > 1) keyAndValue[1] else ""
         hostParamsMap[key] = value
     }
     return SipViaHeader(

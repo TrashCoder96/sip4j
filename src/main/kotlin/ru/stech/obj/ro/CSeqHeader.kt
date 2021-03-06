@@ -1,6 +1,6 @@
 package ru.stech.obj.ro
 
-private val cSeqHeaderRegex = Regex("CSeq: (.*?) (.*?)\r\n")
+private val cSeqHeaderRegex = Regex("CSeq: (.*?) (.*?)[\r\n]")
 
 class CSeqHeader(
     val cSeqNumber: Int,

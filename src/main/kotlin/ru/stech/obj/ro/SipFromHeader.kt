@@ -3,7 +3,7 @@ package ru.stech.obj.ro
 import kotlin.streams.asStream
 
 private val fromHeaderRegex = Regex("From: <sip:(.*?)@(.*?)>(.*?)[\n\r]")
-private val paramReg = Regex("([a-zA-Z0-9]+)=([a-zA-Z0-9]+)")
+private val paramReg = Regex("([a-zA-Z0-9]+)=(.*?)[;>\n\r]")
 
 class SipFromHeader(
     val user: String,
@@ -39,9 +39,13 @@ fun String.parseToFromHeader(): SipFromHeader {
         hostParamsMap[keyAndValue[0]] = keyAndValue[1]
     }
     val fromParams = result.groupValues[3]
+    val fromParamsDevidedByColon = fromParams.split(";")
     val fromParamsMap = mutableMapOf<String, String>()
-    paramReg.findAll(fromParams).asStream().forEach {
-        fromParamsMap[it.groupValues[1]] = it.groupValues[2]
+    for (i in 1 until fromParamsDevidedByColon.size) {
+        val keyAndValue = fromParamsDevidedByColon[i].split("=")
+        val key = keyAndValue[0]
+        val value = if (keyAndValue.size > 1) keyAndValue[1] else ""
+        fromParamsMap[key] = value
     }
     return SipFromHeader(
         user = result.groupValues[1],
