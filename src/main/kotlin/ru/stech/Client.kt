@@ -10,6 +10,7 @@ import ru.stech.obj.ro.CallIdHeader
 import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipMethod
+import ru.stech.obj.ro.SipRequestURIHeader
 import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
@@ -57,6 +58,7 @@ class Client (
     private var registerAlgorithm: String? = null
     private var registerOpaque: String? = null
 
+    private var rinstance = UUID.randomUUID().toString()
     private var registerBranch = "z9hG4bK${UUID.randomUUID()}"
     private val registerResponseChannel = Channel<SipRegisterResponse>(0)
 
@@ -124,23 +126,40 @@ class Client (
                         val byeResponse = SipByeResponse(
                             status = SipStatus.OK,
                             viaHeader = SipViaHeader(
-
+                                host = it.viaHeader.host,
+                                port = it.viaHeader.port,
+                                hostParams = hashMapOf(
+                                    "rport" to "${sipClientProperties.serverPort}",
+                                    "branch" to it.viaHeader.hostParams["branch"]!!
+                                )
                             ),
-                            serverIp = sipClientProperties.serverIp,
-                            serverPort = sipClientProperties.serverPort,
-                            branch = it.branch,
-                            callId = it.callId,
-                            contactHeader = SipContactHeader(
-                                user = sipClientProperties.user,
-                                localIp = sipClientProperties.clientIp,
-                                localPort = sipClientProperties.clientPort
+                            fromHeader = SipFromHeader(
+                                user = it.fromHeader.user,
+                                host = it.fromHeader.host,
+                                hostParamsMap = it.fromHeader.hostParamsMap,
+                                fromParamsMap = it.fromHeader.fromParamsMap
                             ),
                             toHeader = SipToHeader(
-                                user = sipClientProperties.user,
-                                host = sipClientProperties.serverIp
+                                user = it.toHeader.user,
+                                host = it.toHeader.host,
+                                hostParamsMap = it.toHeader.hostParamsMap,
+                                toParamsMap = it.toHeader.toParamsMap
                             ),
-                            fromHeader = it.fromHeader,
-                            cseqNumber = it.cseqNumber
+                            contactHeader = SipContactHeader(
+                                user = sipClientProperties.user,
+                                host = sipClientProperties.clientIp,
+                                port = sipClientProperties.clientPort,
+                                hostParamsMap = mapOf(
+                                    "transport" to "UDP"
+                                )
+                            ),
+                            cSeqHeader = CSeqHeader(
+                                method = it.cSeqHeader.method,
+                                cSeqNumber = it.cSeqHeader.cSeqNumber
+                            ),
+                            callIdHeader = CallIdHeader(
+                                callId = it.callIdHeader.callId
+                            )
                         )
                         send(byeResponse.buildString())
                     }
@@ -194,7 +213,6 @@ class Client (
                     SipMethod.OPTIONS -> optionsRequestChannel.send(body.parseToOptionsRequest())
                     SipMethod.BYE -> byeRequestChannel.send(body.parseToByeRequest())
                     else -> {
-
                     }
                 }
             }
@@ -204,24 +222,48 @@ class Client (
     suspend fun register() {
         val fromTag = UUID.randomUUID().toString()
         val request = SipRegisterRequest(
+            requestURIHeader = SipRequestURIHeader(
+                method = SipMethod.REGISTER,
+                host = sipClientProperties.serverIp,
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                )
+            ),
             viaHeader = SipViaHeader(
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                branch = registerBranch
+                hostParams = mapOf(
+                    "branch" to registerBranch,
+                    "rport" to ""
+                )
             ),
-            maxForwards = 70,
+            toHeader = SipToHeader(
+                user = sipClientProperties.user,
+                host = sipClientProperties.serverIp,
+                toParamsMap = mapOf(
+                    "transport" to "UDP"
+                )
+            ),
+            fromHeader = SipFromHeader(
+                user = sipClientProperties.user,
+                host = sipClientProperties.serverIp,
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                ),
+                fromParamsMap = mapOf(
+                    "tag" to fromTag
+                )
+            ),
             contactHeader = SipContactHeader(
                 sipClientProperties.user,
                 sipClientProperties.clientIp,
-                sipClientProperties.clientPort),
-            toHeader = SipToHeader(
-                sipClientProperties.user,
-                sipClientProperties.serverIp),
-            fromHeader = SipFromHeader(
-                sipClientProperties.user,
-                sipClientProperties.serverIp,
-                tag = fromTag
+                sipClientProperties.clientPort,
+                hostParamsMap = mapOf(
+                    "transport" to "UDP",
+                    "rinstance" to rinstance
+                )
             ),
+            maxForwards = 70,
             callIdHeader = CallIdHeader(
                 callId = registerCallId
             ),
@@ -246,24 +288,46 @@ class Client (
             registerAlgorithm = sipRegisterResponse.wwwAuthenticateHeader!!.algorithm
             registerOpaque = sipRegisterResponse.wwwAuthenticateHeader!!.opaque
             val newRegisterRequest = SipRegisterRequest(
+                requestURIHeader = SipRequestURIHeader(
+                    method = SipMethod.REGISTER,
+                    host = sipClientProperties.serverIp,
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    )
+                ),
                 viaHeader = SipViaHeader(
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    branch = registerBranch
+                    hostParams = mapOf(
+                        "rport" to "",
+                        "branch" to registerBranch
+                    )
                 ),
                 contactHeader = SipContactHeader(
                     user = sipClientProperties.user,
-                    ip = sipClientProperties.clientIp,
-                    port = sipClientProperties.clientPort
+                    host = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort,
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP",
+                        "rinstance" to rinstance
+                    )
                 ),
                 toHeader = SipToHeader(
-                    sipClientProperties.user,
-                    sipClientProperties.serverIp,
+                    user = sipClientProperties.user,
+                    host = sipClientProperties.serverIp,
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    )
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    tag = fromTag
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    ),
+                    fromParamsMap = mapOf(
+                        "tag" to fromTag
+                    )
                 ),
                 maxForwards = 70,
                 callIdHeader = CallIdHeader(
@@ -314,15 +378,31 @@ class Client (
         val cnonce = UUID.randomUUID().toString()
         val fromTag = UUID.randomUUID().toString()
         val unregisterRequest = SipRegisterRequest(
+            requestURIHeader = SipRequestURIHeader(
+                method = SipMethod.REGISTER,
+                host = sipClientProperties.serverIp,
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                )
+            ),
             viaHeader = SipViaHeader(
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                branch = registerBranch
+                hostParams = mapOf(
+                    "branch" to registerBranch,
+                    "rport" to ""
+                )
             ),
             contactHeader = SipContactHeader(
                 user = sipClientProperties.user,
-                ip = sipClientProperties.clientIp,
-                port = sipClientProperties.clientPort
+                host = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort,
+                hostParamsMap = mapOf(
+                    "rinstance" to rinstance
+                ),
+                contactParamsMap = mapOf(
+                    "expires" to "0"
+                )
             ),
             toHeader = SipToHeader(
                 sipClientProperties.user,
@@ -331,7 +411,12 @@ class Client (
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                tag = fromTag
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                ),
+                fromParamsMap = mapOf(
+                    "tag" to fromTag
+                )
             ),
             maxForwards = 70,
             callIdHeader = CallIdHeader(
@@ -371,24 +456,48 @@ class Client (
         if (sipRegisterResponse.status == SipStatus.Unauthorized) {
             registerBranch = UUID.randomUUID().toString()
             val newUnregisterRequest = SipRegisterRequest(
+                requestURIHeader = SipRequestURIHeader(
+                    method = SipMethod.REGISTER,
+                    host = sipClientProperties.serverIp,
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    )
+                ),
                 viaHeader = SipViaHeader(
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    branch = registerBranch
+                    hostParams = mapOf(
+                        "branch" to registerBranch,
+                        "rport" to ""
+                    )
                 ),
                 contactHeader = SipContactHeader(
                     user = sipClientProperties.user,
-                    ip = sipClientProperties.clientIp,
-                    port = sipClientProperties.clientPort
+                    host = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort,
+                    hostParamsMap = mapOf(
+                        "rinstance" to rinstance
+                    ),
+                    contactParamsMap = mapOf(
+                        "expires" to "0"
+                    )
                 ),
                 toHeader = SipToHeader(
                     sipClientProperties.user,
                     sipClientProperties.serverIp,
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    )
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    tag = fromTag
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    ),
+                    fromParamsMap = mapOf(
+                        "tag" to fromTag
+                    )
                 ),
                 maxForwards = 70,
                 callIdHeader = CallIdHeader(
@@ -441,11 +550,25 @@ class Client (
         val nc = "00000001"
         val fromTag = UUID.randomUUID().toString()
         val inviteRequest = SipInviteRequest(
-            branch = inviteBranch,
+            requestURIHeader = SipRequestURIHeader(
+                method = SipMethod.REGISTER,
+                user = remoteUser,
+                host = sipClientProperties.serverIp,
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                )
+            ),
+            viaHeader = SipViaHeader(
+                host = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort,
+                hostParams = mapOf(
+                    "branch" to inviteBranch
+                )
+            ),
             contactHeader = SipContactHeader(
                 user = sipClientProperties.user,
-                localIp = sipClientProperties.clientIp,
-                localPort = sipClientProperties.clientPort
+                host = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort
             ),
             toHeader = SipToHeader(
                 user = remoteUser,
@@ -454,11 +577,18 @@ class Client (
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                tag = fromTag
+                fromParamsMap = mapOf(
+                    "tag" to fromTag
+                )
+            ),
+            cSeqHeader = CSeqHeader(
+                cSeqNumber = 1,
+                method = SipMethod.INVITE
             ),
             maxForwards = 70,
-            callId = callId,
-            cseqNumber = 1,
+            callIdHeader = CallIdHeader(
+                callId = callId
+            ),
             rtpPort = sipClientProperties.rtpPort
         )
         send(inviteRequest.buildString())
@@ -471,11 +601,25 @@ class Client (
             val cnonce = UUID.randomUUID().toString()
             inviteBranch = "z9hG4bK${UUID.randomUUID()}"
             val newInviteRequest = SipInviteRequest(
-                branch = inviteBranch,
+                requestURIHeader = SipRequestURIHeader(
+                    method = SipMethod.REGISTER,
+                    user = remoteUser,
+                    host = sipClientProperties.serverIp,
+                    hostParamsMap = mapOf(
+                        "transport" to "UDP"
+                    )
+                ),
+                viaHeader = SipViaHeader(
+                    host = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort,
+                    hostParams = mapOf(
+                        "branch" to inviteBranch
+                    )
+                ),
                 contactHeader = SipContactHeader(
                     user = sipClientProperties.user,
-                    localIp = sipClientProperties.clientIp,
-                    localPort = sipClientProperties.clientPort
+                    host = sipClientProperties.clientIp,
+                    port = sipClientProperties.clientPort
                 ),
                 toHeader = SipToHeader(
                     user = remoteUser,
@@ -484,11 +628,18 @@ class Client (
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    tag = fromTag
+                    fromParamsMap = mapOf(
+                        "tag" to fromTag
+                    )
                 ),
                 maxForwards = 70,
-                callId = callId,
-                cseqNumber = 2,
+                callIdHeader = CallIdHeader(
+                    callId = callId
+                ),
+                cSeqHeader = CSeqHeader(
+                    cSeqNumber = 2,
+                    method = SipMethod.INVITE
+                ),
                 authorizationHeader = SipAuthorizationHeader(
                     user = sipClientProperties.user,
                     realm = sipInviteResponse.wwwAuthenticateHeader!!.realm,
@@ -526,21 +677,47 @@ class Client (
     }
 
     private fun ack(branch: String) {
+        val fromTag = UUID.randomUUID().toString()
         val ackRequest = SipAckRequest(
-            clientIp = sipClientProperties.clientIp,
-            clientPort = sipClientProperties.clientPort,
-            branch = branch,
+            requestURIHeader = SipRequestURIHeader(
+                method = SipMethod.ACK,
+                user = remoteUser,
+                host = sipClientProperties.serverIp,
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                )
+            ),
+            viaHeader = SipViaHeader(
+                host = sipClientProperties.clientIp,
+                port = sipClientProperties.clientPort,
+                hostParams = mapOf(
+                    "branch" to branch,
+                    "rport" to ""
+                )
+            ),
+            maxForwards = 70,
             toHeader = SipToHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                tag = branch),
+                toParamsMap = mapOf(
+                    "tag" to branch
+                )),
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                tag = UUID.randomUUID().toString()),
-            maxForwards = 70,
-            callId = callId,
-            cseqNumber = 1
+                hostParamsMap = mapOf(
+                    "transport" to "UDP"
+                ),
+                fromParamsMap = mapOf(
+                    "tag" to fromTag
+                )),
+            callIdHeader = CallIdHeader(
+                callId = callId
+            ),
+            cSeqHeader = CSeqHeader(
+                cSeqNumber = 1,
+                method = SipMethod.ACK
+            )
         )
         send(ackRequest.buildString())
     }

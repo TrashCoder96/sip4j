@@ -4,7 +4,7 @@ private val viaHeaderRegexp = Regex("Via: (.*?)/(.*?) (.*?):([0-9]+)(.*?)[\n\r]"
 
 class SipViaHeader(
     val host: String,
-    val port: Int,
+    val port: Int? = null,
     val hostParams: Map<String, String> = mapOf()
 ): SipObject {
     override fun buildString(): String {
@@ -15,7 +15,7 @@ class SipViaHeader(
                 ";${it.key}=${it.value}"
             }
         }
-        return "Via: SIP/2.0/UDP ${host}:${port}${hostParams}"
+        return "Via: SIP/2.0/UDP ${host}${if (port != null) ":$port" else ""}${hostParams}"
     }
 }
 

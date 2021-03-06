@@ -17,8 +17,7 @@ import ru.stech.obj.ro.parseToCallIdHeader
 import ru.stech.obj.ro.parseToFromHeader
 import ru.stech.obj.ro.parseToToHeader
 import ru.stech.obj.ro.parseToViaHeader
-
-val sip20Regexp = Regex("SIP/2.0 ([0-9]+) (.*)")
+import ru.stech.obj.ro.sip20Regexp
 
 class SipRegisterResponse(
     status: SipStatus,

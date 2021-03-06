@@ -12,8 +12,9 @@ enum class SipStatus(val status: Int) {
     Ringing(180)
 }
 
-fun String.findResponseURIHeader(): String? {
-    return responseURIHeaderRegexp.find(this)?.value
+fun String.findResponseURIHeader(): String {
+    val result = responseURIHeaderRegexp.find(this) ?: throw SipParseException()
+    return result.value
 }
 
 fun String.parseResponseSipStatus(): SipStatus {

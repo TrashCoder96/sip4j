@@ -11,6 +11,7 @@ import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.register.SipAuthorizationHeader
 
 class SipInviteRequest(
+    requestURIHeader: SipRequestURIHeader,
     viaHeader: SipViaHeader,
     toHeader: SipToHeader,
     fromHeader: SipFromHeader,
@@ -18,8 +19,8 @@ class SipInviteRequest(
     cSeqHeader: CSeqHeader,
     callIdHeader: CallIdHeader,
     maxForwards: Int,
+    val authorizationHeader: SipAuthorizationHeader? = null,
     val rtpPort: Int,
-    val authorizationHeader: SipAuthorizationHeader?, requestURIHeader: SipRequestURIHeader
 ): SipRequest(requestURIHeader, viaHeader, toHeader, fromHeader, cSeqHeader, callIdHeader, maxForwards) {
 
     override fun buildString(): String {
