@@ -38,15 +38,19 @@ fun String.parseToToHeader(): SipToHeader {
         val keyAndValue = hostAndParamsArray[i].split("=")
         hostParamsMap[keyAndValue[0]] = keyAndValue[1]
     }
-    val fromParams = result.groupValues[3]
-    val fromParamsMap = mutableMapOf<String, String>()
-    paramReg.findAll(fromParams).asStream().forEach {
-        fromParamsMap[it.groupValues[1]] = it.groupValues[2]
+    val toParams = result.groupValues[3]
+    val toParamsDevidedByColon = toParams.split(";")
+    val toParamsMap = mutableMapOf<String, String>()
+    for (i in 1 until toParamsDevidedByColon.size) {
+        val keyAndValue = toParamsDevidedByColon[i].split("=")
+        val key = keyAndValue[0]
+        val value = if (keyAndValue.size > 1) keyAndValue[1] else ""
+        toParamsMap[key] = value
     }
     return SipToHeader(
         user = result.groupValues[1],
         host = host,
         hostParamsMap = hostParamsMap,
-        toParamsMap = fromParamsMap
+        toParamsMap = toParamsMap
     )
 }
