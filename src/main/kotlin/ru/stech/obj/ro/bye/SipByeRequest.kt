@@ -11,14 +11,12 @@ import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.findCSeqHeader
 import ru.stech.obj.ro.findCallIdHeader
-import ru.stech.obj.ro.findContactHeaderLine
 import ru.stech.obj.ro.findFromHeaderLine
 import ru.stech.obj.ro.findRequestURIHeader
 import ru.stech.obj.ro.findToHeaderLine
 import ru.stech.obj.ro.findViaHeaderLine
 import ru.stech.obj.ro.parseToCSeqHeader
 import ru.stech.obj.ro.parseToCallIdHeader
-import ru.stech.obj.ro.parseToContactHeader
 import ru.stech.obj.ro.parseToFromHeader
 import ru.stech.obj.ro.parseToSipRequestURIHeader
 import ru.stech.obj.ro.parseToToHeader
@@ -30,41 +28,42 @@ class SipByeRequest(
     viaHeader: SipViaHeader,
     toHeader: SipToHeader,
     fromHeader: SipFromHeader,
-    val contactHeader: SipContactHeader,
+    private val contactHeader: SipContactHeader? = null,
     cSeqHeader: CSeqHeader,
     callIdHeader: CallIdHeader,
     maxForwards: Int
 ): SipRequest(requestURIHeader, viaHeader, toHeader, fromHeader, cSeqHeader, callIdHeader, maxForwards) {
+    private val contactHeaderLine = contactHeader?.buildString() ?: ""
     override fun buildString(): String {
-        return "${requestURIHeader.buildString()}\n" +
-                "${viaHeader.buildString()}\n" +
-                "${fromHeader.buildString()}\n" +
-                "${toHeader.buildString()}\n" +
-                "${contactHeader.buildString()}\n" +
-                "${callIdHeader.buildString()}\n" +
-                "${cSeqHeader.buildString()}\n" +
-                "Max-Forwards: ${maxForwards}n" +
-                "User-Agent: Sip4j Library\n" +
-                "Content-Length: 0\n" +
-                "\n"
+        return "${requestURIHeader.buildString()}\r\n" +
+                "${viaHeader.buildString()}\r\n" +
+                "${fromHeader.buildString()}\r\n" +
+                "${toHeader.buildString()}\r\n" +
+                "$contactHeaderLine\r\n" +
+                "${contactHeader?.buildString()}\r\n" +
+                "${callIdHeader.buildString()}\r\n" +
+                "${cSeqHeader.buildString()}\r\n" +
+                "Max-Forwards: $maxForwards\r\n" +
+                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
+                "Content-Length: 0\r\n" +
+                "\r\n"
     }
 }
 
 fun String.parseToByeRequest(): SipByeRequest {
     val requestURIHeaderLine = this.findRequestURIHeader() ?: throw SipParseException()
-    val viaHeaderLine = this.findViaHeaderLine() ?: throw SipParseException()
-    val toHeaderLine = this.findToHeaderLine() ?: throw SipParseException()
-    val fromHeaderLine = this.findFromHeaderLine() ?: throw SipParseException()
-    val contactHeaderLine = this.findContactHeaderLine() ?: throw SipParseException()
-    val cSeqHeaderLine = this.findCSeqHeader() ?: throw SipParseException()
-    val callIdHeaderLine = this.findCallIdHeader() ?: throw SipParseException()
+    val viaHeaderLine = this.findViaHeaderLine()
+    val toHeaderLine = this.findToHeaderLine()
+    val fromHeaderLine = this.findFromHeaderLine()
+    //val contactHeaderLine = this.findContactHeaderLine() ?: throw SipParseException()
+    val cSeqHeaderLine = this.findCSeqHeader()
+    val callIdHeaderLine = this.findCallIdHeader()
     val maxForwards = findMaxForwards(this)
     return SipByeRequest(
         requestURIHeader = requestURIHeaderLine.parseToSipRequestURIHeader(),
         viaHeader = viaHeaderLine.parseToViaHeader(),
         toHeader = toHeaderLine.parseToToHeader(),
         fromHeader = fromHeaderLine.parseToFromHeader(),
-        contactHeader = contactHeaderLine.parseToContactHeader(),
         cSeqHeader = cSeqHeaderLine.parseToCSeqHeader(),
         callIdHeader = callIdHeaderLine.parseToCallIdHeader(),
         maxForwards = maxForwards

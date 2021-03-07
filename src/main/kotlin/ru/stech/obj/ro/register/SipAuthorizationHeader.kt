@@ -24,6 +24,6 @@ class SipAuthorizationHeader(
                 "nc=${nc}," +
                 "qop=${qop}," +
                 "algorithm=${algorithm}," +
-                "opaque=\"${opaque}\"\n"
+                "opaque=\"${opaque}\"\r\n"
     }
 }

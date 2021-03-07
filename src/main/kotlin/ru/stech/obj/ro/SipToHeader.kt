@@ -1,7 +1,5 @@
 package ru.stech.obj.ro
 
-import kotlin.streams.asStream
-
 private val toHeaderRegex = Regex("To: <sip:(.*?)@(.*?)>(.*?)[\n\r]")
 private val paramReg = Regex("([a-zA-Z0-9]+)=(.*?)[;>\n\r]")
 
@@ -33,14 +31,14 @@ fun String.parseToToHeader(): SipToHeader {
     val hostWithParams = result!!.groupValues[2]
     val hostAndParamsArray = hostWithParams.split(";")
     val host = hostAndParamsArray[0]
-    val hostParamsMap = mutableMapOf<String, String>()
+    val hostParamsMap = linkedMapOf<String, String>()
     for (i in 1 until hostAndParamsArray.size) {
         val keyAndValue = hostAndParamsArray[i].split("=")
         hostParamsMap[keyAndValue[0]] = keyAndValue[1]
     }
     val toParams = result.groupValues[3]
     val toParamsDevidedByColon = toParams.split(";")
-    val toParamsMap = mutableMapOf<String, String>()
+    val toParamsMap = linkedMapOf<String, String>()
     for (i in 1 until toParamsDevidedByColon.size) {
         val keyAndValue = toParamsDevidedByColon[i].split("=")
         val key = keyAndValue[0]

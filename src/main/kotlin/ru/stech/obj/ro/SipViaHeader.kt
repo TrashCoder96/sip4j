@@ -27,7 +27,7 @@ fun String.findViaHeaderLine(): String {
 fun String.parseToViaHeader(): SipViaHeader {
     val result = viaHeaderRegexp.find(this)
     val hostParams = result!!.groupValues[5]
-    val hostParamsMap = mutableMapOf<String, String>()
+    val hostParamsMap = linkedMapOf<String, String>()
     val hostParamPartsDividedByColon = hostParams.split(";")
     for (i in 1 until hostParamPartsDividedByColon.size) {
         val keyAndValue = hostParamPartsDividedByColon[i].split("=")

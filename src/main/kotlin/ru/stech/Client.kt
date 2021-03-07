@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import ru.stech.obj.ro.CSeqHeader
 import ru.stech.obj.ro.CallIdHeader
+import ru.stech.obj.ro.SipAuthException
 import ru.stech.obj.ro.SipContactHeader
 import ru.stech.obj.ro.SipFromHeader
 import ru.stech.obj.ro.SipMethod
@@ -32,10 +33,12 @@ import ru.stech.util.extractBranchFromReceivedBody
 import ru.stech.util.findIp
 import ru.stech.util.findMethod
 import ru.stech.util.getResponseHash
+import ru.stech.util.randomString
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.UUID
+import java.util.*
+import javax.naming.AuthenticationException
 
 class Client (
     private val user: String,
@@ -58,7 +61,7 @@ class Client (
     private var registerAlgorithm: String? = null
     private var registerOpaque: String? = null
 
-    private var rinstance = UUID.randomUUID().toString()
+    private var rinstance = randomString(16)
     private var registerBranch = "z9hG4bK${UUID.randomUUID()}"
     private val registerResponseChannel = Channel<SipRegisterResponse>(0)
 
@@ -78,7 +81,7 @@ class Client (
         clientPort = clientPort,
         rtpPort = 30040
     )
-    private val remoteUser: String = "4090"
+    private val remoteUser = "4090"
 
     init {
         channel.configureBlocking(false)
@@ -91,34 +94,37 @@ class Client (
                         val optionsResponse = SipOptionsResponse(
                             status = SipStatus.OK,
                             viaHeader = SipViaHeader(
-                                host = sipClientProperties.clientIp,
-                                port = sipClientProperties.clientPort,
-                                hostParams = mapOf(
+                                host = sipClientProperties.serverIp,
+                                port = sipClientProperties.serverPort,
+                                hostParams = linkedMapOf(
                                     "rport" to "${sipClientProperties.serverPort}",
                                     "branch" to it.viaHeader.hostParams["branch"]!!
                                 )
                             ),
+                            contactHeader = SipContactHeader(
+                                user = sipClientProperties.user,
+                                host = sipClientProperties.clientIp,
+                                port = sipClientProperties.clientPort
+                            ),
                             fromHeader = SipFromHeader(
                                 user = it.fromHeader.user,
                                 host = it.fromHeader.host,
-                                fromParamsMap = mapOf(
+                                fromParamsMap = linkedMapOf(
                                     "tag" to it.fromHeader.fromParamsMap["tag"]!!
                                 )
                             ),
                             toHeader = SipToHeader(
                                 user = sipClientProperties.user,
                                 host = sipClientProperties.clientIp,
-                                hostParamsMap = mapOf(
-                                    "rinstance" to it.toHeader.hostParamsMap["rinstance"]!!
+                                hostParamsMap = linkedMapOf(
+                                    "rinstance" to it.toHeader.hostParamsMap["rinstance"]!!,
+                                ),
+                                toParamsMap = linkedMapOf(
+                                    "tag" to randomString(8)
                                 )
                             ),
-                            cSeqHeader = CSeqHeader(
-                                cSeqNumber = it.cSeqHeader.cSeqNumber,
-                                method = SipMethod.OPTIONS
-                            ),
-                            callIdHeader = CallIdHeader(
-                                callId = it.callIdHeader.callId
-                            )
+                            cSeqHeader = it.cSeqHeader,
+                            callIdHeader = it.callIdHeader
                         )
                         send(optionsResponse.buildString())
                     }
@@ -128,38 +134,23 @@ class Client (
                             viaHeader = SipViaHeader(
                                 host = it.viaHeader.host,
                                 port = it.viaHeader.port,
-                                hostParams = hashMapOf(
+                                hostParams = linkedMapOf(
                                     "rport" to "${sipClientProperties.serverPort}",
                                     "branch" to it.viaHeader.hostParams["branch"]!!
                                 )
                             ),
-                            fromHeader = SipFromHeader(
-                                user = it.fromHeader.user,
-                                host = it.fromHeader.host,
-                                hostParamsMap = it.fromHeader.hostParamsMap,
-                                fromParamsMap = it.fromHeader.fromParamsMap
-                            ),
-                            toHeader = SipToHeader(
-                                user = it.toHeader.user,
-                                host = it.toHeader.host,
-                                hostParamsMap = it.toHeader.hostParamsMap,
-                                toParamsMap = it.toHeader.toParamsMap
-                            ),
+                            fromHeader = it.fromHeader,
+                            toHeader = it.toHeader,
                             contactHeader = SipContactHeader(
                                 user = sipClientProperties.user,
                                 host = sipClientProperties.clientIp,
                                 port = sipClientProperties.clientPort,
-                                hostParamsMap = mapOf(
+                                hostParamsMap = linkedMapOf(
                                     "transport" to "UDP"
                                 )
                             ),
-                            cSeqHeader = CSeqHeader(
-                                method = it.cSeqHeader.method,
-                                cSeqNumber = it.cSeqHeader.cSeqNumber
-                            ),
-                            callIdHeader = CallIdHeader(
-                                callId = it.callIdHeader.callId
-                            )
+                            cSeqHeader = it.cSeqHeader,
+                            callIdHeader = it.callIdHeader
                         )
                         send(byeResponse.buildString())
                     }
@@ -169,9 +160,9 @@ class Client (
         rtpChannel.configureBlocking(false)
         rtpChannel.socket().bind(InetSocketAddress(sipClientProperties.rtpPort))
         //loop for rtp stream from server
+        val receivedBuf = ByteBuffer.allocate(2048)
         CoroutineScope(dispatcher).launch {
             while (true) {
-                val receivedBuf = ByteBuffer.allocate(2048)
                 receivedBuf.clear()
                 if (rtpChannel.receive(receivedBuf) != null) {
                     print("pcm\n")
@@ -186,6 +177,7 @@ class Client (
         buf.clear()
         buf.put(byteBody)
         buf.flip()
+        println(requestBody)
         channel.send(buf, InetSocketAddress(sipClientProperties.serverIp, sipClientProperties.serverPort))
     }
 
@@ -195,7 +187,10 @@ class Client (
             while (true) {
                 receivedBuf.clear()
                 if (channel.receive(receivedBuf) != null) {
-                    val body = String(receivedBuf.array())
+                    val body = String(Arrays.copyOfRange(receivedBuf.array(), 0, receivedBuf.position()))
+                    println("1--------------------")
+                    println(body)
+                    println("2--------------------")
                     sendToAppropriateChannel(body)
                 }
             }
@@ -220,19 +215,19 @@ class Client (
     }
 
     suspend fun register() {
-        val fromTag = UUID.randomUUID().toString()
+        val fromTag = randomString(8)
         val request = SipRegisterRequest(
             requestURIHeader = SipRequestURIHeader(
                 method = SipMethod.REGISTER,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 )
             ),
             viaHeader = SipViaHeader(
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                hostParams = mapOf(
+                hostParams = linkedMapOf(
                     "branch" to registerBranch,
                     "rport" to ""
                 )
@@ -240,17 +235,17 @@ class Client (
             toHeader = SipToHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                toParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 )
             ),
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 ),
-                fromParamsMap = mapOf(
+                fromParamsMap = linkedMapOf(
                     "tag" to fromTag
                 )
             ),
@@ -258,9 +253,9 @@ class Client (
                 sipClientProperties.user,
                 sipClientProperties.clientIp,
                 sipClientProperties.clientPort,
-                hostParamsMap = mapOf(
-                    "transport" to "UDP",
-                    "rinstance" to rinstance
+                hostParamsMap = linkedMapOf(
+                    "rinstance" to rinstance,
+                    "transport" to "UDP"
                 )
             ),
             maxForwards = 70,
@@ -271,7 +266,7 @@ class Client (
                 cSeqNumber = 1,
                 method = SipMethod.REGISTER
             ),
-            expires = 20,
+            expires = 60,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -291,14 +286,14 @@ class Client (
                 requestURIHeader = SipRequestURIHeader(
                     method = SipMethod.REGISTER,
                     host = sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     )
                 ),
                 viaHeader = SipViaHeader(
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    hostParams = mapOf(
+                    hostParams = linkedMapOf(
                         "rport" to "",
                         "branch" to registerBranch
                     )
@@ -307,25 +302,25 @@ class Client (
                     user = sipClientProperties.user,
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    hostParamsMap = mapOf(
-                        "transport" to "UDP",
-                        "rinstance" to rinstance
+                    hostParamsMap = linkedMapOf(
+                        "rinstance" to rinstance,
+                        "transport" to "UDP"
                     )
                 ),
                 toHeader = SipToHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     )
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     ),
-                    fromParamsMap = mapOf(
+                    fromParamsMap = linkedMapOf(
                         "tag" to fromTag
                     )
                 ),
@@ -357,7 +352,7 @@ class Client (
                     algorithm = registerAlgorithm!!,
                     opaque = registerOpaque!!
                 ),
-                expires = 20,
+                expires = 60,
                 allow = arrayListOf(
                     SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                     SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -365,10 +360,8 @@ class Client (
             send(newRegisterRequest.buildString())
             sipRegisterResponse = registerResponseChannel.receive()
         }
-        if (sipRegisterResponse.status == SipStatus.OK) {
-            print("Registration is ok")
-        } else {
-            print("Registration is failed")
+        if (sipRegisterResponse.status != SipStatus.OK) {
+            throw SipAuthException()
         }
     }
 
@@ -376,45 +369,48 @@ class Client (
         registerBranch = "z9hG4bK${UUID.randomUUID()}"
         val nc = String.format("%08d", ++registerNc)
         val cnonce = UUID.randomUUID().toString()
-        val fromTag = UUID.randomUUID().toString()
+        val fromTag = randomString(8)
         val unregisterRequest = SipRegisterRequest(
             requestURIHeader = SipRequestURIHeader(
                 method = SipMethod.REGISTER,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 )
             ),
             viaHeader = SipViaHeader(
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                hostParams = mapOf(
-                    "branch" to registerBranch,
-                    "rport" to ""
+                hostParams = linkedMapOf(
+                    "rport" to "",
+                    "branch" to registerBranch
                 )
             ),
             contactHeader = SipContactHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "rinstance" to rinstance
                 ),
-                contactParamsMap = mapOf(
+                contactParamsMap = linkedMapOf(
                     "expires" to "0"
                 )
             ),
             toHeader = SipToHeader(
                 sipClientProperties.user,
                 sipClientProperties.serverIp,
+                hostParamsMap = linkedMapOf(
+                    "transport" to "UDP"
+                ),
             ),
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 ),
-                fromParamsMap = mapOf(
+                fromParamsMap = linkedMapOf(
                     "tag" to fromTag
                 )
             ),
@@ -446,7 +442,7 @@ class Client (
                 algorithm = registerAlgorithm!!,
                 opaque = registerOpaque!!
             ),
-            expires = 20,
+            expires = 60,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -459,14 +455,14 @@ class Client (
                 requestURIHeader = SipRequestURIHeader(
                     method = SipMethod.REGISTER,
                     host = sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     )
                 ),
                 viaHeader = SipViaHeader(
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    hostParams = mapOf(
+                    hostParams = linkedMapOf(
                         "branch" to registerBranch,
                         "rport" to ""
                     )
@@ -475,27 +471,27 @@ class Client (
                     user = sipClientProperties.user,
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "rinstance" to rinstance
                     ),
-                    contactParamsMap = mapOf(
+                    contactParamsMap = linkedMapOf(
                         "expires" to "0"
                     )
                 ),
                 toHeader = SipToHeader(
                     sipClientProperties.user,
                     sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     )
                 ),
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     ),
-                    fromParamsMap = mapOf(
+                    fromParamsMap = linkedMapOf(
                         "tag" to fromTag
                     )
                 ),
@@ -527,7 +523,7 @@ class Client (
                     algorithm = registerAlgorithm!!,
                     opaque = registerOpaque!!
                 ),
-                expires = 20,
+                expires = 60,
                 allow = arrayListOf(
                     SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                     SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -548,20 +544,20 @@ class Client (
 
     suspend fun startCall() {
         val nc = "00000001"
-        val fromTag = UUID.randomUUID().toString()
+        val fromTag = randomString(8)
         val inviteRequest = SipInviteRequest(
             requestURIHeader = SipRequestURIHeader(
-                method = SipMethod.REGISTER,
+                method = SipMethod.INVITE,
                 user = remoteUser,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 )
             ),
             viaHeader = SipViaHeader(
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                hostParams = mapOf(
+                hostParams = linkedMapOf(
                     "branch" to inviteBranch
                 )
             ),
@@ -577,7 +573,7 @@ class Client (
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                fromParamsMap = mapOf(
+                fromParamsMap = linkedMapOf(
                     "tag" to fromTag
                 )
             ),
@@ -602,17 +598,17 @@ class Client (
             inviteBranch = "z9hG4bK${UUID.randomUUID()}"
             val newInviteRequest = SipInviteRequest(
                 requestURIHeader = SipRequestURIHeader(
-                    method = SipMethod.REGISTER,
+                    method = SipMethod.INVITE,
                     user = remoteUser,
                     host = sipClientProperties.serverIp,
-                    hostParamsMap = mapOf(
+                    hostParamsMap = linkedMapOf(
                         "transport" to "UDP"
                     )
                 ),
                 viaHeader = SipViaHeader(
                     host = sipClientProperties.clientIp,
                     port = sipClientProperties.clientPort,
-                    hostParams = mapOf(
+                    hostParams = linkedMapOf(
                         "branch" to inviteBranch
                     )
                 ),
@@ -628,7 +624,7 @@ class Client (
                 fromHeader = SipFromHeader(
                     user = sipClientProperties.user,
                     host = sipClientProperties.serverIp,
-                    fromParamsMap = mapOf(
+                    fromParamsMap = linkedMapOf(
                         "tag" to fromTag
                     )
                 ),
@@ -677,20 +673,20 @@ class Client (
     }
 
     private fun ack(branch: String) {
-        val fromTag = UUID.randomUUID().toString()
+        val fromTag = randomString(8)
         val ackRequest = SipAckRequest(
             requestURIHeader = SipRequestURIHeader(
                 method = SipMethod.ACK,
                 user = remoteUser,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 )
             ),
             viaHeader = SipViaHeader(
                 host = sipClientProperties.clientIp,
                 port = sipClientProperties.clientPort,
-                hostParams = mapOf(
+                hostParams = linkedMapOf(
                     "branch" to branch,
                     "rport" to ""
                 )
@@ -699,16 +695,16 @@ class Client (
             toHeader = SipToHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                toParamsMap = mapOf(
+                toParamsMap = linkedMapOf(
                     "tag" to branch
                 )),
             fromHeader = SipFromHeader(
                 user = sipClientProperties.user,
                 host = sipClientProperties.serverIp,
-                hostParamsMap = mapOf(
+                hostParamsMap = linkedMapOf(
                     "transport" to "UDP"
                 ),
-                fromParamsMap = mapOf(
+                fromParamsMap = linkedMapOf(
                     "tag" to fromTag
                 )),
             callIdHeader = CallIdHeader(

@@ -9,7 +9,7 @@ enum class SipStatus(val status: Int) {
     OK(200),
     Bad(400),
     Trying(100),
-    Ringing(180)
+    Ringing(180),
 }
 
 fun String.findResponseURIHeader(): String {

@@ -18,9 +18,9 @@ class SipRequestURIHeader(
 ): SipObject {
     override fun buildString(): String {
         val hostParams = hostParamsMap.entries.joinToString(separator = "") {
-            ";${it.value}=${it.value}"
+            ";${it.key}=${it.value}"
         }
-        return "${method.name} sip:${if (user != null) "${user}@" else ""}${host}${if (port != null) "$port" else ""}${hostParams}"
+        return "${method.name} sip:${if (user != null) "${user}@" else ""}${host}${if (port != null) "$port" else ""}${hostParams} SIP/2.0"
     }
 }
 
@@ -70,7 +70,7 @@ private fun parseMethod(line: String): SipMethod {
 }
 
 private fun extractHostParamsMap(line: String): Map<String, String> {
-    val hostParamsMap = mutableMapOf<String, String>()
+    val hostParamsMap = linkedMapOf<String, String>()
     val hostParamsResult = hostParamsRegexp.find(line)
     if (hostParamsResult != null) {
         val hostParamsArrayDividedByColon = hostParamsResult.groupValues[1].split(";")

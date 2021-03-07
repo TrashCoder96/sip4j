@@ -24,20 +24,20 @@ class SipRegisterRequest(
     val authorizationHeader: SipAuthorizationHeader? = null,
 ): SipRequest(requestURIHeader, viaHeader, toHeader, fromHeader, cSeqHeader, callIdHeader, maxForwards) {
     override fun buildString(): String {
-        return "${requestURIHeader.buildString()}\n" +
-                "${viaHeader.buildString()}\n" +
-                "${contactHeader.buildString()}\n" +
-                "${toHeader.buildString()}\n" +
-                "${fromHeader.buildString()}\n" +
-                "${callIdHeader.buildString()}\n" +
-                "${cSeqHeader.buildString()}\n" +
-                "Max-Forwards: ${maxForwards}\n" +
-                "Expires: ${expires}\n" +
-                "Allow: ${allow.joinToString(", ")}\n" +
-                "User-Agent: Sip4j Library\n" +
+        return "${requestURIHeader.buildString()}\r\n" +
+                "${viaHeader.buildString()}\r\n" +
+                "Max-Forwards: ${maxForwards}\r\n" +
+                "${contactHeader.buildString()}\r\n" +
+                "${toHeader.buildString()}\r\n" +
+                "${fromHeader.buildString()}\r\n" +
+                "${callIdHeader.buildString()}\r\n" +
+                "${cSeqHeader.buildString()}\r\n" +
+                "Expires: ${expires}\r\n" +
+                "Allow: ${allow.joinToString(", ")}\r\n" +
+                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
                 (authorizationHeader?.buildString() ?: "") +
-                "Allow-Events: presence, kpml, talk\n" +
-                "Content-Length: 0\n" +
-                "\n"
+                "Allow-Events: presence, kpml, talk\r\n" +
+                "Content-Length: 0\r\n" +
+                "\r\n"
     }
 }

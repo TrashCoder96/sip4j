@@ -31,12 +31,12 @@ fun String.findContactHeaderLine(): String {
 fun String.parseToContactHeader(): SipContactHeader {
     val result = contactHeader.find(this)
     val hostParams = result!!.groupValues[4]
-    val hostParamsMap = mutableMapOf<String, String>()
+    val hostParamsMap = linkedMapOf<String, String>()
     paramReg.findAll(hostParams).asStream().forEach {
         hostParamsMap[it.groupValues[1]] = it.groupValues[2]
     }
     val contactParams = result.groupValues[5]
-    val contactParamsMap = mutableMapOf<String, String>()
+    val contactParamsMap = linkedMapOf<String, String>()
     paramReg.findAll(contactParams).asStream().forEach {
         contactParamsMap[it.groupValues[1]] = it.groupValues[2]
     }

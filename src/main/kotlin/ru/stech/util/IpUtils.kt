@@ -6,6 +6,7 @@ import java.math.BigInteger
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.security.MessageDigest
+import java.util.*
 
 val maxForwardsRegex = Regex("Max-Forwards: ([0-9]+)")
 
@@ -84,4 +85,15 @@ fun getResponseHash(user: String,
     val ha1 = md5("${user}:${realm}:${password}")
     val ha2 = md5("${method.name}:sip:${serverIp};transport=UDP")
     return md5("${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}")
+}
+
+fun randomString(targetStringLength: Int): String {
+    val leftLimit = 48 // numeral '0'
+    val rightLimit = 122 // letter 'z'
+    val random = Random()
+    return random.ints(leftLimit, rightLimit + 1)
+        .filter { i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97) }
+        .limit(targetStringLength.toLong())
+        .collect({ StringBuilder() }, StringBuilder::appendCodePoint, StringBuilder::append)
+        .toString()
 }
