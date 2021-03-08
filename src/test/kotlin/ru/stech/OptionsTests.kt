@@ -6,6 +6,7 @@ import ru.stech.obj.ro.SipMethod
 import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.invite.parseToInviteResponse
 import ru.stech.obj.ro.options.parseToOptionsRequest
+import sun.net.www.protocol.http.HttpURLConnection.userAgent
 
 class OptionsTests {
 
@@ -19,7 +20,7 @@ class OptionsTests {
                 "Call-ID: c8f7c2ce-9ac2-4d78-a0aa-30f01c0e5551\n" +
                 "CSeq: 8878 OPTIONS\n" +
                 "Max-Forwards: 70\n" +
-                "User-Agent: Asterisk PBX 15.5.0\n" +
+                "User-Agent: ${userAgent}\n" +
                 "Content-Length:  0"
         val request = body.parseToOptionsRequest()
         assertEquals(SipMethod.OPTIONS, request.requestURIHeader.method)

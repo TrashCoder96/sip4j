@@ -82,6 +82,7 @@ class Client (
         rtpPort = 30040
     )
     private val remoteUser = "4090"
+    private val sessionTimeout = 60
 
     init {
         channel.configureBlocking(false)
@@ -181,7 +182,7 @@ class Client (
         channel.send(buf, InetSocketAddress(sipClientProperties.serverIp, sipClientProperties.serverPort))
     }
 
-    fun startListening() {
+    fun startListening() {20
         val receivedBuf = ByteBuffer.allocate(2048)
         CoroutineScope(dispatcher).launch {
             while (true) {
@@ -266,7 +267,7 @@ class Client (
                 cSeqNumber = 1,
                 method = SipMethod.REGISTER
             ),
-            expires = 60,
+            expires = sessionTimeout,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -352,7 +353,7 @@ class Client (
                     algorithm = registerAlgorithm!!,
                     opaque = registerOpaque!!
                 ),
-                expires = 60,
+                expires = sessionTimeout,
                 allow = arrayListOf(
                     SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                     SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
@@ -442,7 +443,7 @@ class Client (
                 algorithm = registerAlgorithm!!,
                 opaque = registerOpaque!!
             ),
-            expires = 60,
+            expires = sessionTimeout,
             allow = arrayListOf(
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)

@@ -9,7 +9,7 @@ import ru.stech.obj.ro.SipRequestURIHeader
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
 import ru.stech.obj.ro.register.SipAuthorizationHeader
-import java.util.*
+import ru.stech.obj.ro.userAgent
 
 class SipInviteRequest(
     requestURIHeader: SipRequestURIHeader,
@@ -49,7 +49,7 @@ class SipInviteRequest(
                 "Max-Forwards: ${maxForwards}\r\n" +
                 "Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\r\n" +
                 "Content-Type: application/sdp\r\n" +
-                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
+                "User-Agent: ${userAgent}\r\n" +
                 (authorizationHeader?.buildString() ?: "") +
                 "Allow-Events: presence, kpml, talk\r\n" +
                 "Content-Length: ${messageBodyByteArray.length}\r\n" +

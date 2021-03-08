@@ -8,6 +8,7 @@ import ru.stech.obj.ro.SipResponse
 import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
+import ru.stech.obj.ro.userAgent
 
 class SipOptionsResponse(
     status: SipStatus,
@@ -30,7 +31,7 @@ class SipOptionsResponse(
                 "Accept-Language: en\r\n" +
                 "Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\r\n" +
                 "Supported: replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri\r\n" +
-                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
+                "User-Agent: ${userAgent}\r\n" +
                 "Allow-Events: presence, kpml, talk\r\n" +
                 "Content-Length: 0\r\n" +
                 "\r\n"

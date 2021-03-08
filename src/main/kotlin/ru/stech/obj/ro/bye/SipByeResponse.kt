@@ -8,6 +8,7 @@ import ru.stech.obj.ro.SipResponse
 import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
+import ru.stech.obj.ro.userAgent
 
 class SipByeResponse(
     status: SipStatus,
@@ -27,7 +28,7 @@ class SipByeResponse(
                 "${fromHeader.buildString()}\r\n" +
                 "${callIdHeader.buildString()}\r\n" +
                 "${cSeqHeader.buildString()}\r\n" +
-                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
+                "User-Agent: ${userAgent}\r\n" +
                 "Content-Length: 0\r\n" +
                 "\r\n"
     }

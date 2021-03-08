@@ -21,6 +21,7 @@ import ru.stech.obj.ro.parseToFromHeader
 import ru.stech.obj.ro.parseToSipRequestURIHeader
 import ru.stech.obj.ro.parseToToHeader
 import ru.stech.obj.ro.parseToViaHeader
+import ru.stech.obj.ro.userAgent
 import ru.stech.util.findMaxForwards
 
 class SipByeRequest(
@@ -44,7 +45,7 @@ class SipByeRequest(
                 "${callIdHeader.buildString()}\r\n" +
                 "${cSeqHeader.buildString()}\r\n" +
                 "Max-Forwards: $maxForwards\r\n" +
-                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
+                "User-Agent: ${userAgent}\r\n" +
                 "Content-Length: 0\r\n" +
                 "\r\n"
     }

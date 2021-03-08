@@ -9,6 +9,7 @@ import ru.stech.obj.ro.SipRequest
 import ru.stech.obj.ro.SipRequestURIHeader
 import ru.stech.obj.ro.SipToHeader
 import ru.stech.obj.ro.SipViaHeader
+import ru.stech.obj.ro.userAgent
 
 class SipRegisterRequest(
     requestURIHeader: SipRequestURIHeader,
@@ -34,7 +35,7 @@ class SipRegisterRequest(
                 "${cSeqHeader.buildString()}\r\n" +
                 "Expires: ${expires}\r\n" +
                 "Allow: ${allow.joinToString(", ")}\r\n" +
-                "User-Agent: Z 5.4.12 v2.10.13.2-mod\r\n" +
+                "User-Agent: ${userAgent}\r\n" +
                 (authorizationHeader?.buildString() ?: "") +
                 "Allow-Events: presence, kpml, talk\r\n" +
                 "Content-Length: 0\r\n" +
