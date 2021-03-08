@@ -6,7 +6,7 @@ import ru.stech.obj.ro.SipMethod
 import ru.stech.obj.ro.SipStatus
 import ru.stech.obj.ro.invite.parseToInviteResponse
 import ru.stech.obj.ro.options.parseToOptionsRequest
-import sun.net.www.protocol.http.HttpURLConnection.userAgent
+import ru.stech.obj.ro.userAgent
 
 class OptionsTests {
 
