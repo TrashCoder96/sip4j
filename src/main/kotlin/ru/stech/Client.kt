@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import ru.stech.g711.DecompressInputStream
 import ru.stech.obj.ro.CSeqHeader
 import ru.stech.obj.ro.CallIdHeader
 import ru.stech.obj.ro.SipAuthException
@@ -34,11 +35,12 @@ import ru.stech.util.findIp
 import ru.stech.util.findMethod
 import ru.stech.util.getResponseHash
 import ru.stech.util.randomString
+import java.io.ByteArrayInputStream
+import java.io.FileOutputStream
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 import java.util.*
-import javax.naming.AuthenticationException
 
 class Client (
     private val user: String,
@@ -83,6 +85,8 @@ class Client (
     )
     private val remoteUser = "4090"
     private val sessionTimeout = 60
+
+    private val f = FileOutputStream("file.wav")
 
     init {
         channel.configureBlocking(false)
@@ -130,6 +134,7 @@ class Client (
                         send(optionsResponse.buildString())
                     }
                     byeRequestChannel.onReceive {
+                        f.close()
                         val byeResponse = SipByeResponse(
                             status = SipStatus.OK,
                             viaHeader = SipViaHeader(
@@ -166,7 +171,10 @@ class Client (
             while (true) {
                 receivedBuf.clear()
                 if (rtpChannel.receive(receivedBuf) != null) {
-                    print("pcm\n")
+                    val data = Arrays.copyOfRange(receivedBuf.array(), 12, receivedBuf.position())
+                    val stream = ByteArrayInputStream(data)
+                    val inp = DecompressInputStream(stream, true)
+                    f.write(inp.readAllBytes())
                 }
             }
         }
@@ -178,20 +186,16 @@ class Client (
         buf.clear()
         buf.put(byteBody)
         buf.flip()
-        println(requestBody)
         channel.send(buf, InetSocketAddress(sipClientProperties.serverIp, sipClientProperties.serverPort))
     }
 
-    fun startListening() {20
+    fun startListening() {
         val receivedBuf = ByteBuffer.allocate(2048)
         CoroutineScope(dispatcher).launch {
             while (true) {
                 receivedBuf.clear()
                 if (channel.receive(receivedBuf) != null) {
                     val body = String(Arrays.copyOfRange(receivedBuf.array(), 0, receivedBuf.position()))
-                    println("1--------------------")
-                    println(body)
-                    println("2--------------------")
                     sendToAppropriateChannel(body)
                 }
             }
