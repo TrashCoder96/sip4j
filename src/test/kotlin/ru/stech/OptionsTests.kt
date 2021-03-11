@@ -80,4 +80,34 @@ class OptionsTests {
         assertEquals("md5", response.wwwAuthenticateHeader?.algorithm)
         assertEquals("auth", response.wwwAuthenticateHeader?.qop)
     }
+
+    @Test
+    fun textToInviteResponse() {
+        val body = "SIP/2.0 200 OK\n" +
+                "Via: SIP/2.0/UDP 192.168.188.181:30001;rport=30001;received=192.168.188.181;branch=z9hG4bK7f9b019e-1afa-4685-b37c-f3a9d82048f3\n" +
+                "Call-ID: 5db3c499-5fe5-44ed-bb13-0ae51d9fdc9a\n" +
+                "From: <sip:4093@10.255.250.29>;tag=xQ98mugg\n" +
+                "To: <sip:4090@10.255.250.29>;tag=b161faba-014b-46f6-a1a4-5493593b6b81\n" +
+                "CSeq: 2 INVITE\n" +
+                "Server: Asterisk PBX 15.5.0\n" +
+                "Allow: OPTIONS, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, REGISTER, MESSAGE, REFER\n" +
+                "Contact: <sip:10.255.250.29:5060>\n" +
+                "Supported: 100rel, timer, replaces, norefersub\n" +
+                "Content-Type: application/sdp\n" +
+                "Content-Length:   222\n" +
+                "\n" +
+                "v=0\n" +
+                "o=- 3978935774 3 IN IP4 10.255.250.29\n" +
+                "s=Asterisk\n" +
+                "c=IN IP4 10.255.250.29\n" +
+                "t=0 0\n" +
+                "m=audio 15136 RTP/AVP 8 0 9\n" +
+                "a=rtpmap:8 PCMA/8000\n" +
+                "a=rtpmap:0 PCMU/8000\n" +
+                "a=rtpmap:9 G722/8000\n" +
+                "a=ptime:20\n" +
+                "a=maxptime:150\n" +
+                "a=sendrecv"
+        body.parseToInviteResponse()
+    }
 }

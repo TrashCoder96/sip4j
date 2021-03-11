@@ -22,6 +22,8 @@ import ru.stech.obj.ro.parseToViaHeader
 import ru.stech.obj.ro.register.WWWAuthenticateHeader
 import ru.stech.obj.ro.register.findWWWAuthenticateHeader
 import ru.stech.obj.ro.register.parseToWWWAuthenticateHeader
+import ru.stech.sdp.SdpBody
+import ru.stech.sdp.parseToSdpBody
 
 class SipInviteResponse(
     status: SipStatus,
@@ -31,6 +33,7 @@ class SipInviteResponse(
     cSeqHeader: CSeqHeader,
     callIdHeader: CallIdHeader,
     val wwwAuthenticateHeader: WWWAuthenticateHeader? = null,
+    val sdpBody: SdpBody? = null
 ): SipResponse(status, viaHeader, fromHeader, toHeader, cSeqHeader, callIdHeader) {
     override fun buildString(): String {
         TODO("Not yet implemented")
@@ -44,6 +47,7 @@ fun String.parseToInviteResponse(): SipInviteResponse {
     val toHeaderLine = this.findToHeaderLine()
     val cSeqHeaderLine = this.findCSeqHeader()
     val callIdHeaderLine = this.findCallIdHeader()
+    val sdpBody = this.parseToSdpBody()
     return SipInviteResponse(
         status = responseURIHeaderLine.parseResponseSipStatus(),
         viaHeader = viaHeaderLine.parseToViaHeader(),
@@ -51,6 +55,7 @@ fun String.parseToInviteResponse(): SipInviteResponse {
         toHeader = toHeaderLine.parseToToHeader(),
         cSeqHeader = cSeqHeaderLine.parseToCSeqHeader(),
         callIdHeader = callIdHeaderLine.parseToCallIdHeader(),
-        wwwAuthenticateHeader = findWWWAuthenticateHeader()?.parseToWWWAuthenticateHeader()
+        wwwAuthenticateHeader = findWWWAuthenticateHeader()?.parseToWWWAuthenticateHeader(),
+        sdpBody = sdpBody
     )
 }
