@@ -3,6 +3,7 @@ package ru.stech
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import ru.stech.g711.decompressor.DecompressInputStream
@@ -30,19 +31,38 @@ import ru.stech.obj.ro.register.SipAuthorizationHeader
 import ru.stech.obj.ro.register.SipRegisterRequest
 import ru.stech.obj.ro.register.SipRegisterResponse
 import ru.stech.obj.ro.register.parseToSipRegisterResponse
+import ru.stech.rtp.RtpPacket
 import ru.stech.util.extractBranchFromReceivedBody
 import ru.stech.util.findIp
 import ru.stech.util.findMethod
 import ru.stech.util.getResponseHash
 import ru.stech.util.randomString
 import java.io.ByteArrayInputStream
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 import java.util.*
 
-class Client (
+class RtpChannel {
+    fun bindReciever(inetSocketAddress: InetSocketAddress) {
+        reciever.socket().bind(inetSocketAddress)
+    }
+
+
+    var inetSocketAddress: InetSocketAddress? = null;
+
+    val reciever = DatagramChannel.open()
+    val sender = DatagramChannel.open()
+
+    init {
+        reciever.configureBlocking(false);
+        sender.configureBlocking(false);
+    }
+}
+
+class Client(
     private val user: String,
     private val password: String,
     private val clientPort: Int,
@@ -51,7 +71,7 @@ class Client (
     private val dispatcher: CoroutineDispatcher
 ) {
     private val channel = DatagramChannel.open()
-    private val rtpChannel = DatagramChannel.open()
+    private val rtpChannels = RtpChannel()
     private val clientIp = findIp()
 
     private val callId = UUID.randomUUID().toString()
@@ -163,14 +183,14 @@ class Client (
                 }
             }
         }
-        rtpChannel.configureBlocking(false)
-        rtpChannel.socket().bind(InetSocketAddress(sipClientProperties.rtpPort))
+
+        rtpChannels.bindReciever(InetSocketAddress(sipClientProperties.rtpPort))
         //loop for rtp stream from server
         val receivedBuf = ByteBuffer.allocate(2048)
         CoroutineScope(dispatcher).launch {
             while (true) {
                 receivedBuf.clear()
-                if (rtpChannel.receive(receivedBuf) != null) {
+                if (rtpChannels.reciever.receive(receivedBuf) != null) {
                     val data = Arrays.copyOfRange(receivedBuf.array(), 0, receivedBuf.position());
                     var packet = RtpPacket(data);
                     val stream = ByteArrayInputStream(packet.payload)
@@ -178,6 +198,44 @@ class Client (
                     f.write(inp);
                 }
             }
+        }
+
+    }
+
+    fun startSending() {
+        CoroutineScope(dispatcher).launch {
+
+            var time = 30000000;
+            var seqNum:Short = 10000;
+            delay(2000);
+            while (true) {
+
+                var file = FileInputStream("path-to-file");
+                file.use {
+
+
+
+                    while (file.available() > 0) {
+                        var data = file.readNBytes(160);
+                        var packet = RtpPacket();
+                        packet.version = 2;
+                        packet.payloadType = 8;
+                        packet.timeStamp = System.currentTimeMillis().toInt();
+
+                        packet.sequenceNumber = seqNum
+                        packet.payload = data;
+                        packet.timeStamp = time;
+                        time += 160
+                        seqNum++
+                        packet.SSRC = 0x262126F1;
+                        rtpChannels.sender.send(ByteBuffer.wrap(packet.rawData), rtpChannels.inetSocketAddress)
+
+                    }
+                }
+                delay(3000);
+                time+= 3000;
+                seqNum++
+          }
         }
     }
 
@@ -672,6 +730,13 @@ class Client (
             ack(inviteBranch)
         }
         if (sipInviteResponse.status == SipStatus.OK) {
+            if (sipInviteResponse.sdpBody == null) throw Exception("sdpBody is null");
+            rtpChannels.inetSocketAddress =
+                InetSocketAddress(
+                    sipInviteResponse.sdpBody!!.remoteRdpHost,
+                    sipInviteResponse.sdpBody!!.remoteRdpPort
+                )
+            startSending()
             print("Invation is ok")
         } else {
             print("Invation is failed")
