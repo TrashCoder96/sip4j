@@ -8,10 +8,10 @@ class RtpPacketParser {
         val cis = CompressInputStream(ByteArrayInputStream(bytes), useALaw)
         val result = mutableListOf<RtpPacket>()
         cis.use { compressInputStream: CompressInputStream ->
-            val payload = compressInputStream.readNBytes(60)
+            val payload = compressInputStream.readAllBytes()
             val packet = RtpPacket(headers)
             packet.CSRCCount = (Math.ceil((payload.size / 4).toDouble()).toInt().toByte())
-            packet.setPayload(payload)
+            packet.payload = payload
             result.add(packet)
         }
         return result.toTypedArray()

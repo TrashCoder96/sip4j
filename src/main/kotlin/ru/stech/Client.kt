@@ -5,7 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
-import ru.stech.g711.DecompressInputStream
+import ru.stech.g711.decompressor.DecompressInputStream
 import ru.stech.obj.ro.CSeqHeader
 import ru.stech.obj.ro.CallIdHeader
 import ru.stech.obj.ro.SipAuthException
@@ -171,10 +171,11 @@ class Client (
             while (true) {
                 receivedBuf.clear()
                 if (rtpChannel.receive(receivedBuf) != null) {
-                    val data = Arrays.copyOfRange(receivedBuf.array(), 12, receivedBuf.position())
-                    val stream = ByteArrayInputStream(data)
-                    val inp = DecompressInputStream(stream, true)
-                    f.write(inp.readAllBytes())
+                    val data = Arrays.copyOfRange(receivedBuf.array(), 0, receivedBuf.position());
+                    var packet = RtpPacket(data);
+                    val stream = ByteArrayInputStream(packet.payload)
+                    val inp = DecompressInputStream(stream, true).readAllBytes()
+                    f.write(inp);
                 }
             }
         }

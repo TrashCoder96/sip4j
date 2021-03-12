@@ -1,4 +1,4 @@
-package ru.stech.g711
+package ru.stech.g711.decompressor
 
 import java.io.FilterInputStream
 import java.io.InputStream
