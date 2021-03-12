@@ -75,8 +75,8 @@ class RtpPacket {
     var payload
         get() =  Arrays.copyOfRange(rawData, PAYLOAD_OFFSET, rawData.size)
         set(value) {
-            for (i in PAYLOAD_OFFSET until rawData.size + PAYLOAD_OFFSET) {
-                rawData[i] = value[i - PAYLOAD_OFFSET]
+            for (i in 0 until value.size) {
+                rawData[i + PAYLOAD_OFFSET] = value[i]
             }
         }
 
