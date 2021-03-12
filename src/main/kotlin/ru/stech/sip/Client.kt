@@ -1,10 +1,16 @@
-package ru.stech
+package ru.stech.sip
 
+import io.netty.bootstrap.Bootstrap
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel.ChannelFuture
+import io.netty.channel.epoll.EpollDatagramChannel
+import io.netty.channel.epoll.EpollEventLoopGroup
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import ru.stech.SipClientProperties
 import ru.stech.g711.DecompressInputStream
 import ru.stech.obj.ro.CSeqHeader
 import ru.stech.obj.ro.CallIdHeader
@@ -20,7 +26,6 @@ import ru.stech.obj.ro.ack.SipAckRequest
 import ru.stech.obj.ro.bye.SipByeRequest
 import ru.stech.obj.ro.bye.SipByeResponse
 import ru.stech.obj.ro.bye.parseToByeRequest
-import ru.stech.obj.ro.invite.SipInviteRequest
 import ru.stech.obj.ro.invite.SipInviteResponse
 import ru.stech.obj.ro.invite.parseToInviteResponse
 import ru.stech.obj.ro.options.SipOptionsRequest
@@ -35,6 +40,7 @@ import ru.stech.util.findIp
 import ru.stech.util.findMethod
 import ru.stech.util.getResponseHash
 import ru.stech.util.randomString
+import ru.stech.util.sendSipRequest
 import java.io.ByteArrayInputStream
 import java.io.FileOutputStream
 import java.net.InetSocketAddress
@@ -50,7 +56,7 @@ class Client (
     private val serverPort: Int,
     private val dispatcher: CoroutineDispatcher
 ) {
-    private val channel = DatagramChannel.open()
+    private val sipChannel = DatagramChannel.open()
     private val rtpChannel = DatagramChannel.open()
     private val clientIp = findIp()
 
@@ -74,7 +80,7 @@ class Client (
 
     private val byeRequestChannel = Channel<SipByeRequest>(0)
 
-    private val sipClientProperties: SipClientProperties = SipClientProperties(
+    val sipClientProperties: SipClientProperties = SipClientProperties(
         user = user,
         password = password,
         serverIp = serverIp,
@@ -131,7 +137,8 @@ class Client (
                             cSeqHeader = it.cSeqHeader,
                             callIdHeader = it.callIdHeader
                         )
-                        send(optionsResponse.buildString())
+                        sendSipRequest(optionsResponse.buildString(),
+                            sipClientProperties.serverIp, sipClientProperties.serverPort, channel)
                     }
                     byeRequestChannel.onReceive {
                         f.close()
@@ -158,7 +165,7 @@ class Client (
                             cSeqHeader = it.cSeqHeader,
                             callIdHeader = it.callIdHeader
                         )
-                        send(byeResponse.buildString())
+                        sendSipRequest(byeResponse.buildString())
                     }
                 }
             }
@@ -180,27 +187,15 @@ class Client (
         }
     }
 
-    fun send(requestBody: String) {
-        val byteBody = requestBody.toByteArray()
-        val buf = ByteBuffer.allocate(byteBody.size)
-        buf.clear()
-        buf.put(byteBody)
-        buf.flip()
-        channel.send(buf, InetSocketAddress(sipClientProperties.serverIp, sipClientProperties.serverPort))
-    }
+    private var sipChannelFuture: ChannelFuture? = null
 
-    fun startListening() {
-        val receivedBuf = ByteBuffer.allocate(2048)
-        CoroutineScope(dispatcher).launch {
-            while (true) {
-                receivedBuf.clear()
-                if (channel.receive(receivedBuf) != null) {
-                    val body = String(Arrays.copyOfRange(receivedBuf.array(), 0, receivedBuf.position()))
-                    sendToAppropriateChannel(body)
-                }
-            }
-        }
-        print("started")
+    private fun startListening() {
+        val sipWorkerGroup = EpollEventLoopGroup()
+        val bootstrap = ServerBootstrap().group(sipWorkerGroup)
+            .channel(EpollDatagramChannel::class.java)
+            .handler(null)
+        sipChannelFuture = bootstrap.bind(sipClientProperties.clientPort)
+            .syncUninterruptibly()
     }
 
     private suspend fun sendToAppropriateChannel(body: String) {
@@ -220,6 +215,7 @@ class Client (
     }
 
     suspend fun register() {
+        startListening()
         val fromTag = randomString(8)
         val request = SipRegisterRequest(
             requestURIHeader = SipRequestURIHeader(
@@ -276,7 +272,7 @@ class Client (
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
         )
-        send(request.buildString())
+        sendSipRequest(request.buildString())
         var sipRegisterResponse = registerResponseChannel.receive()
         if (sipRegisterResponse.status == SipStatus.Unauthorized) {
             val nc = String.format("%08d", ++registerNc)
@@ -362,7 +358,7 @@ class Client (
                     SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                     SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
             )
-            send(newRegisterRequest.buildString())
+            sendSipRequest(newRegisterRequest.buildString())
             sipRegisterResponse = registerResponseChannel.receive()
         }
         if (sipRegisterResponse.status != SipStatus.OK) {
@@ -452,7 +448,7 @@ class Client (
                 SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                 SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
         )
-        send(unregisterRequest.buildString())
+        sendSipRequest(unregisterRequest.buildString())
         var sipRegisterResponse = registerResponseChannel.receive()
         if (sipRegisterResponse.status == SipStatus.Unauthorized) {
             registerBranch = UUID.randomUUID().toString()
@@ -533,147 +529,13 @@ class Client (
                     SipMethod.INVITE, SipMethod.ACK, SipMethod.CANCEL, SipMethod.BYE, SipMethod.NOTIFY, SipMethod.REFER,
                     SipMethod.MESSAGE, SipMethod.OPTIONS, SipMethod.INFO, SipMethod.SUBSCRIBE)
             )
-            send(newUnregisterRequest.buildString())
+            sendSipRequest(newUnregisterRequest.buildString())
             sipRegisterResponse = registerResponseChannel.receive()
         }
         if (sipRegisterResponse.status == SipStatus.OK) {
             print("Unregistration is ok")
         } else {
             print("Unregistration is failed")
-        }
-    }
-
-    suspend fun stopCall() {
-
-    }
-
-    suspend fun startCall() {
-        val nc = "00000001"
-        val fromTag = randomString(8)
-        val inviteRequest = SipInviteRequest(
-            requestURIHeader = SipRequestURIHeader(
-                method = SipMethod.INVITE,
-                user = remoteUser,
-                host = sipClientProperties.serverIp,
-                hostParamsMap = linkedMapOf(
-                    "transport" to "UDP"
-                )
-            ),
-            viaHeader = SipViaHeader(
-                host = sipClientProperties.clientIp,
-                port = sipClientProperties.clientPort,
-                hostParams = linkedMapOf(
-                    "branch" to inviteBranch
-                )
-            ),
-            contactHeader = SipContactHeader(
-                user = sipClientProperties.user,
-                host = sipClientProperties.clientIp,
-                port = sipClientProperties.clientPort
-            ),
-            toHeader = SipToHeader(
-                user = remoteUser,
-                host = sipClientProperties.serverIp
-            ),
-            fromHeader = SipFromHeader(
-                user = sipClientProperties.user,
-                host = sipClientProperties.serverIp,
-                fromParamsMap = linkedMapOf(
-                    "tag" to fromTag
-                )
-            ),
-            cSeqHeader = CSeqHeader(
-                cSeqNumber = 1,
-                method = SipMethod.INVITE
-            ),
-            maxForwards = 70,
-            callIdHeader = CallIdHeader(
-                callId = callId
-            ),
-            rtpPort = sipClientProperties.rtpPort
-        )
-        send(inviteRequest.buildString())
-        var sipInviteResponse = inviteResponseChannel.receive()
-        while (sipInviteResponse.status == SipStatus.Trying || sipInviteResponse.status == SipStatus.Ringing) {
-            sipInviteResponse = inviteResponseChannel.receive()
-        }
-        ack(inviteBranch)
-        if (sipInviteResponse.status == SipStatus.Unauthorized) {
-            val cnonce = UUID.randomUUID().toString()
-            inviteBranch = "z9hG4bK${UUID.randomUUID()}"
-            val newInviteRequest = SipInviteRequest(
-                requestURIHeader = SipRequestURIHeader(
-                    method = SipMethod.INVITE,
-                    user = remoteUser,
-                    host = sipClientProperties.serverIp,
-                    hostParamsMap = linkedMapOf(
-                        "transport" to "UDP"
-                    )
-                ),
-                viaHeader = SipViaHeader(
-                    host = sipClientProperties.clientIp,
-                    port = sipClientProperties.clientPort,
-                    hostParams = linkedMapOf(
-                        "branch" to inviteBranch
-                    )
-                ),
-                contactHeader = SipContactHeader(
-                    user = sipClientProperties.user,
-                    host = sipClientProperties.clientIp,
-                    port = sipClientProperties.clientPort
-                ),
-                toHeader = SipToHeader(
-                    user = remoteUser,
-                    host = sipClientProperties.serverIp
-                ),
-                fromHeader = SipFromHeader(
-                    user = sipClientProperties.user,
-                    host = sipClientProperties.serverIp,
-                    fromParamsMap = linkedMapOf(
-                        "tag" to fromTag
-                    )
-                ),
-                maxForwards = 70,
-                callIdHeader = CallIdHeader(
-                    callId = callId
-                ),
-                cSeqHeader = CSeqHeader(
-                    cSeqNumber = 2,
-                    method = SipMethod.INVITE
-                ),
-                authorizationHeader = SipAuthorizationHeader(
-                    user = sipClientProperties.user,
-                    realm = sipInviteResponse.wwwAuthenticateHeader!!.realm,
-                    nonce = sipInviteResponse.wwwAuthenticateHeader!!.nonce,
-                    serverIp = sipClientProperties.serverIp,
-                    response = getResponseHash(sipClientProperties.user,
-                        sipInviteResponse.wwwAuthenticateHeader!!.realm,
-                        sipClientProperties.password,
-                        SipMethod.INVITE,
-                        sipClientProperties.serverIp,
-                        sipInviteResponse.wwwAuthenticateHeader!!.nonce,
-                        nc,
-                        cnonce,
-                        sipInviteResponse.wwwAuthenticateHeader!!.qop),
-                    cnonce = cnonce,
-                    nc = nc,
-                    qop = sipInviteResponse.wwwAuthenticateHeader!!.qop,
-                    algorithm = sipInviteResponse.wwwAuthenticateHeader!!.algorithm,
-                    opaque = sipInviteResponse.wwwAuthenticateHeader!!.opaque
-                ),
-                rtpPort = sipClientProperties.rtpPort
-            )
-            send(newInviteRequest.buildString())
-            sipInviteResponse = inviteResponseChannel.receive()
-            while (sipInviteResponse.status == SipStatus.Trying || sipInviteResponse.status == SipStatus.Ringing) {
-                sipInviteResponse = inviteResponseChannel.receive()
-            }
-            ack(inviteBranch)
-        }
-        if (sipInviteResponse.status == SipStatus.OK) {
-            print("Invation is ok")
-        } else {
-            print("Invation is failed")
         }
     }
 
@@ -720,7 +582,7 @@ class Client (
                 method = SipMethod.ACK
             )
         )
-        send(ackRequest.buildString())
+        sendSipRequest(ackRequest.buildString())
     }
 
 }

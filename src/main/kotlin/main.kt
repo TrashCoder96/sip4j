@@ -1,23 +1,21 @@
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.runBlocking
-import ru.stech.Client
+import ru.stech.ClientFactory
 
 fun main(args: Array<String>) {
-    val dispatcher = newFixedThreadPoolContext(3, "co")
-    val ce = Client(
-        user = "4091",
+    val factory = ClientFactory(3)
+    val client = factory.newClient(
+        user = "4093",
         password = "E5bTUEKL8K",
         clientPort = 30001,
         serverPort = 5060,
-        serverIp = "10.255.250.29",
-        dispatcher = dispatcher
+        serverIp = "10.255.250.29"
     )
-    ce.startListening()
+    client.startListening()
     GlobalScope.launch {
-        ce.register()
-        ce.startCall()
+        client.register()
+        client.startCall()
         //ce.unregister()
     }
     runBlocking {
