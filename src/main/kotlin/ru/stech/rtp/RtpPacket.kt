@@ -1,16 +1,18 @@
 package ru.stech.rtp
 
+import java.util.*
+
 class RtpPacket {
 
     var rawData: ByteArray
 
-    constructor() : this(ByteArray(200))
-    
+    constructor() : this(ByteArray(172))
+
     constructor(rawData: ByteArray) {
         this.rawData = rawData
     }
 
-    constructor(headers: RtpPacketHeaders) : this(ByteArray(200)) {
+    constructor(headers: RtpPacketHeaders) : this(ByteArray(172)) {
         version = headers.version
         padding = headers.padding
         extension = headers.extension
@@ -56,7 +58,7 @@ class RtpPacket {
         }
 
     var sequenceNumber: Short
-        get() = (rawData[2].toInt() shl 0x8 and rawData[3].toInt()).toShort()
+        get() = ((rawData[2].toInt() shl 0x8) or (rawData[3].toInt() and 0xFF)).toShort()
         set(value) {
             rawData[2] = (value.toInt() shr 0x8).toByte()
             rawData[3] = (value.toInt() and 0xFF).toByte()
@@ -70,22 +72,23 @@ class RtpPacket {
         get() = getIntFromBytes(8)
         set(value) = setIntToBytes(value, 8)
 
+    var payload
+        get() =  Arrays.copyOfRange(rawData, PAYLOAD_OFFSET, rawData.size)
+        set(value) {
+            for (i in PAYLOAD_OFFSET until rawData.size + PAYLOAD_OFFSET) {
+                rawData[i] = value[i - PAYLOAD_OFFSET]
+            }
+        }
+
     private fun getIntFromBytes(start: Int): Int {
-        return (rawData[start].toInt() shl 24 and -0x1) +
-                (rawData[start + 1].toInt() shl 16 and 0xFFFFFF) +
-                (rawData[start + 2].toInt() shl 8 and 0xFFFF) +
+        return (rawData[start].toInt() shl 24 and -0x1) or
+                (rawData[start + 1].toInt() shl 16 and 0xFFFFFF) or
+                (rawData[start + 2].toInt() shl 8 and 0xFFFF) or
                 (rawData[start + 3].toInt() and 0xFF)
     }
 
     //end SSRC
     private val PAYLOAD_OFFSET = 12
-
-    fun setPayload(payload: ByteArray) {
-        require(payload.size <= 60) { "payload max size 60 bytes" }
-        for (i in PAYLOAD_OFFSET until PAYLOAD_OFFSET + 60) {
-            rawData[i] = payload[i - PAYLOAD_OFFSET]
-        }
-    }
 
     fun setPayloadByIndex(index: Int, value: Byte) {
         rawData[index + PAYLOAD_OFFSET] = value
